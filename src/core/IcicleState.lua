@@ -1,0 +1,66 @@
+IcicleState = IcicleState or {}
+
+function IcicleState.BuildInitialState()
+    return {
+        knownPlates = {},
+        plateMeta = {},
+        visiblePlatesByName = {},
+        visibleCount = 0,
+
+        plateByGUID = {},
+        guidByPlate = {},
+        candidatesByName = {},
+        pendingBindByGUID = {},
+
+        cooldownsByGUID = {},
+        fallbackCooldownsByName = {},
+        recentEventByUnit = {},
+        recentUnitSucceededByUnit = {},
+        specByGUID = {},
+        specByName = {},
+        classByGUID = {},
+        classByName = {},
+        reactionByGUID = {},
+        reactionByName = {},
+        reactionByPlate = {},
+        reactionSourceByGUID = {},
+        reactionSourceByName = {},
+        reactionSourceByPlate = {},
+        inspectUnitByGUID = {},
+        inspectRequestAtByGUID = {},
+        inspectQueue = {},
+        inspectQueuedByGUID = {},
+        inspectCurrent = nil,
+        inspectOutOfRangeSince = {},
+        matrixLog = {},
+
+        stats = {
+            scanCount = 0,
+            scanTotalMs = 0,
+            refreshCount = 0,
+            lastScanChildren = 0,
+            startTime = 0,
+            resolverBindAttempts = 0,
+            resolverBindSuccess = 0,
+            pendingBindQueued = 0,
+            pendingBindResolved = 0,
+            pendingBindExpired = 0,
+            pendingBindPeak = 0,
+            onUpdateCount = 0,
+            onUpdateTotalMs = 0,
+        },
+
+        scanAccum = 0,
+        iconAccum = 0,
+        groupAccum = 0,
+        testAccum = 0,
+        specAccum = 0,
+        inspectAccum = 0,
+
+        testModeActive = false,
+        testPool = {},
+        testPoolByType = {},
+        testByPlate = {},
+        ui = {},
+    }
+end

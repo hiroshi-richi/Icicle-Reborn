@@ -1,0 +1,31 @@
+## Interface: 30300
+## Title: Icicle Reborn
+## Notes: Tracks enemy cooldown usage and shows active cooldown on nameplates.
+## SavedVariables: Icicledb
+## Author: Hiroshi Richi
+## Version: 1.0.0
+
+Icicle.xml
+src\config\settings.lua
+src\core\IcicleConstants.lua
+src\data\IcicleData.lua
+src\ui\IcicleLocale.lua
+src\ui\IcicleTooltip.lua
+src\modules\IcicleCombat.lua
+src\ui\IcicleOptions.lua
+src\core\IcicleConfig.lua
+src\modules\IcicleCooldownRules.lua
+src\modules\IcicleTracking.lua
+src\modules\IcicleNameplates.lua
+src\modules\IcicleResolver.lua
+src\modules\IcicleRender.lua
+src\modules\IcicleTestMode.lua
+src\modules\IcicleSpells.lua
+src\core\IcicleDebug.lua
+src\modules\IcicleSpec.lua
+src\core\IcicleState.lua
+src\modules\IcicleEvents.lua
+src\core\IcicleMigration.lua
+src\ui\IcicleUIOptions.lua
+src\bootstrap\IcicleBootstrap.lua
+src\core\Icicle.lua

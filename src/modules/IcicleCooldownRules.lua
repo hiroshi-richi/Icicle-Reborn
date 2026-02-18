@@ -1,0 +1,497 @@
+IcicleCooldownRules = IcicleCooldownRules or {}
+
+-- Matrix Source and Changelog
+-- Source baseline: Icicle default cooldown interaction matrix.
+-- Changelog:
+-- 2026-02-17: Initial shared/reset matrix port with WotLK ID mapping.
+-- 2026-02-17: Added alias normalization and strict coverage validation counters.
+-- 2026-02-17: Expanded Readiness reset coverage set.
+
+local SHARED_COOLDOWNS = {
+    -- PvP trinkets/racials
+    [51377] = {
+        [7744] = { sharedDuration = 45 },   -- Will of the Forsaken
+        [59752] = { sharedDuration = 120 }, -- Every Man for Himself
+    },
+    [59752] = {
+        [51377] = { sharedDuration = 120 },
+    },
+    [7744] = {
+        [51377] = { sharedDuration = 45 },
+    },
+
+    -- Druid
+    [16979] = { [49376] = {} }, -- Feral Charge Bear -> Cat
+    [49376] = { [16979] = {} }, -- Feral Charge Cat -> Bear
+
+    -- Hunter trap families
+    [60192] = { [14311] = {}, [13809] = {} }, -- Freezing Arrow
+    [14311] = { [60192] = {}, [13809] = {} }, -- Freezing Trap
+    [13809] = { [60192] = {}, [14311] = {} }, -- Frost Trap
+    [49055] = { [49067] = {} },               -- Immolation Trap -> Explosive Trap
+    [49067] = { [49055] = {} },               -- Explosive Trap -> Immolation Trap
+
+    -- Paladin
+    [31884] = { -- Avenging Wrath
+        [498] = { sharedDuration = 30 },   -- Divine Protection
+        [642] = { sharedDuration = 30 },   -- Divine Shield
+        [48788] = { sharedDuration = 30 }, -- Lay on Hands
+        [10278] = { sharedDuration = 30 }, -- Hand of Protection
+    },
+    [498] = { [31884] = { sharedDuration = 30 } },
+    [642] = { [31884] = { sharedDuration = 30 } },
+    [48788] = { [31884] = { sharedDuration = 30 } },
+
+    -- Warrior
+    [72] = { [6552] = { sharedDuration = 12 } },  -- Shield Bash -> Pummel
+    [6552] = { [72] = { sharedDuration = 10 } },  -- Pummel -> Shield Bash
+    [1719] = { [871] = { sharedDuration = 12 }, [20230] = { sharedDuration = 12 } }, -- Recklessness
+    [871] = { [1719] = { sharedDuration = 12 }, [20230] = { sharedDuration = 12 } }, -- Shield Wall
+    [20230] = { [871] = { sharedDuration = 12 }, [1719] = { sharedDuration = 12 } }, -- Retaliation
+}
+
+local RESET_COOLDOWNS = {
+    -- Hunter: Readiness
+    [23989] = {
+        [53209] = true, -- Chimera Shot
+        [49050] = true, -- Aimed Shot
+        [13809] = true, -- Frost Trap
+        [14311] = true, -- Freezing Trap
+        [60192] = true, -- Freezing Arrow
+        [5116] = true,  -- Concussive Shot
+        [34026] = true, -- Kill Command
+        [53271] = true, -- Master's Call
+        [1513] = true,  -- Scare Beast
+        [49045] = true, -- Arcane Shot
+        [20736] = true, -- Distracting Shot
+        [1543] = true,  -- Flare
+        [61006] = true, -- Kill Shot
+        [49048] = true, -- Multi-Shot
+        [3045] = true,  -- Rapid Fire
+        [19801] = true, -- Tranquilizing Shot
+        [3034] = true,  -- Viper Sting
+        [19263] = true, -- Deterrence
+        [781] = true,   -- Disengage
+        [49067] = true, -- Explosive Trap
+        [5384] = true,  -- Feign Death
+        [49055] = true, -- Immolation Trap
+        [34477] = true, -- Misdirection
+        [53339] = true, -- Mongoose Bite
+        [48996] = true, -- Raptor Strike
+        [34600] = true, -- Snake Trap
+        [34490] = true, -- Silencing Shot
+        [19503] = true, -- Scatter Shot
+    },
+
+    -- Rogue: Preparation
+    [14185] = {
+        [5277] = true,  -- Evasion
+        [11305] = true, -- Sprint
+        [1856] = true,  -- Vanish
+        [14177] = true, -- Cold Blood
+        [36554] = true, -- Shadowstep
+        [13877] = true, -- Blade Flurry
+        [1766] = true,  -- Kick
+        [51722] = true, -- Dismantle
+    },
+
+    -- Warlock: Summon Felhunter
+    [691] = {
+        [19647] = true, -- Spell Lock
+    },
+
+    -- Mage: Cold Snap
+    [11958] = {
+        [43039] = true, -- Ice Barrier
+        [43012] = true, -- Frost Ward
+        [42917] = true, -- Frost Nova
+        [45438] = true, -- Ice Block
+        [12472] = true, -- Icy Veins
+        [31687] = true, -- Summon Water Elemental
+        [44572] = true, -- Deep Freeze
+        [42931] = true, -- Cone of Cold
+    },
+}
+
+local EXPECTED_SHARED_EDGE_COUNT = 29
+local EXPECTED_RESET_ENTRY_COUNT = 45
+
+local ID_ALIASES = {
+    -- Spell ranks / equivalent IDs used by Icicle custom list
+    [6554] = 6552, -- Pummel rank alias
+    [2983] = 11305, -- Sprint rank alias
+    [26889] = 1856, -- Vanish rank alias
+    [26669] = 5277, -- Evasion rank alias
+    [1020] = 642, -- Divine Shield rank alias
+    [1022] = 10278, -- Hand of Protection rank alias
+    [5599] = 10278, -- Hand of Protection rank alias
+    [853] = 10308, -- Hammer of Justice ranks
+    [5588] = 10308,
+    [5589] = 10308,
+    [8122] = 10890, -- Psychic Scream ranks
+    [30283] = 47847, -- Shadowfury ranks
+    [30413] = 47847,
+    [30414] = 47847,
+    [6789] = 47860, -- Death Coil ranks
+    [17925] = 47860,
+    [17926] = 47860,
+    [27223] = 47860,
+    [33041] = 42950, -- Dragon's Breath ranks
+    [33042] = 42950,
+    [33043] = 42950,
+    [11129] = 29977, -- Combustion rank alias
+    [24132] = 49012, -- Wyvern Sting ranks
+    [24133] = 49012,
+    [27068] = 49012,
+    [16689] = 53312, -- Nature's Grasp ranks
+    [27009] = 53312,
+    [27148] = 6940, -- Hand of Sacrifice rank alias
+    [8042] = 25454, -- Earth Shock ranks
+}
+
+local MODIFIER_COOLDOWNS = {
+    [8983] = { feral = 30 },
+    [49067] = { survival = 22 },
+    [60192] = { survival = 22 },
+    [14311] = { survival = 22 },
+    [13809] = { survival = 22 },
+    [49055] = { survival = 22 },
+    [34600] = { survival = 22 },
+    [12051] = { arcane = 120 },
+    [66] = { arcane = 126 },
+    [31884] = { retri = 120 },
+    [498] = { protPala = 120 },
+    [642] = { protPala = 240 },
+    [10308] = { protPala = 30 },
+    [586] = { shadow = 15 },
+    [10890] = { shadow = 23 },
+    [34433] = { shadow = 180 },
+    [5277] = { combat = 120 },
+    [11305] = { combat = 120 },
+    [57934] = { sub = 20 },
+    [49271] = { ele = 3.5 },
+    [18708] = { demo = 126 },
+    [18499] = { fury = 20 },
+    [11578] = { protWar = 15 },
+    [676] = { protWar = 40 },
+    [1719] = { protWar = 240, fury = 201 },
+    [65932] = { protWar = 240 },
+    [2565] = { protWar = 40 },
+    [871] = { protWar = 240 },
+}
+
+-- Default trigger behavior: tracked cooldowns are success-driven by default.
+-- Only add entries here when a specific spell should use a non-success trigger.
+local TRIGGER_OVERRIDES = {
+}
+
+local function NormalizeSpellID(spellID)
+    return ID_ALIASES[spellID] or spellID
+end
+
+local function NormalizeTrigger(trigger)
+    if not trigger then return "SUCCESS" end
+    trigger = string.upper(trigger)
+    if trigger == "SUCCESS" or trigger == "AURA_APPLIED" or trigger == "START" or trigger == "ANY" then
+        return trigger
+    end
+    return "SUCCESS"
+end
+
+local function ResolveRawConfig(ctx, spellID, sourceGUID, sourceName)
+    local rawSpellID = spellID
+    spellID = NormalizeSpellID(spellID)
+    local db = ctx.db
+
+    if db and db.disabledSpells and (db.disabledSpells[spellID] or db.disabledSpells[rawSpellID]) then
+        return nil, "disabled"
+    end
+
+    local source = "none"
+    local cfg
+    local base = ctx.defaultSpellData and ctx.defaultSpellData[spellID]
+    if base then
+        source = "default"
+        cfg = { cd = base.cd, trigger = "SUCCESS" }
+    end
+    if db and db.customSpells then
+        local custom = db.customSpells[spellID] or db.customSpells[rawSpellID]
+        if custom then
+            cfg = custom
+            source = "custom"
+        end
+    end
+
+    local cd, trigger
+    if type(cfg) == "number" then
+        cd, trigger = cfg, "SUCCESS"
+    elseif type(cfg) == "table" then
+        cd, trigger = cfg.cd or cfg.duration, cfg.trigger or "SUCCESS"
+    end
+
+    local modifierSpec
+    local modifiers = MODIFIER_COOLDOWNS[spellID]
+    if modifiers and ctx.GetUnitSpec then
+        modifierSpec = ctx.GetUnitSpec(sourceGUID, sourceName)
+        if modifierSpec and modifiers[modifierSpec] then
+            cd = modifiers[modifierSpec]
+        end
+    end
+
+    local overrideApplied = false
+    if db and db.spellOverrides then
+        local ov = db.spellOverrides[spellID] or db.spellOverrides[rawSpellID]
+        if ov then
+            if type(ov) == "number" then
+                cd = ov
+                overrideApplied = true
+            elseif type(ov) == "table" then
+                cd = ov.cd or cd
+                trigger = ov.trigger or trigger
+                overrideApplied = true
+            end
+        end
+    end
+
+    local expectedTrigger = nil
+    if TRIGGER_OVERRIDES[spellID] then
+        expectedTrigger = NormalizeTrigger(TRIGGER_OVERRIDES[spellID])
+    elseif ctx.defaultSpellData and ctx.defaultSpellData[spellID] then
+        expectedTrigger = "SUCCESS"
+    end
+    if expectedTrigger and not overrideApplied then
+        trigger = expectedTrigger
+    end
+
+    if not cd or cd <= 0 then
+        return nil, "missing"
+    end
+
+    local shared = SHARED_COOLDOWNS[spellID]
+    local resets = RESET_COOLDOWNS[spellID]
+
+    return {
+        spellID = spellID,
+        originalSpellID = rawSpellID,
+        cd = cd,
+        trigger = NormalizeTrigger(trigger),
+        source = source,
+        overrideApplied = overrideApplied,
+        isItem = ctx.IsItemSpell and (ctx.IsItemSpell(spellID) and true or false) or false,
+        sharedTargets = shared,
+        resetSpells = resets,
+        sharedGroup = nil,
+        resets = resets,
+        modifiers = modifiers,
+        appliedSpec = modifierSpec,
+    }
+end
+
+function IcicleCooldownRules.BuildTriggerParityReport(ctx)
+    local out = {}
+    local total, mismatches, missing = 0, 0, 0
+    local mismatchList = {}
+
+    if not ctx or type(ctx.defaultSpellData) ~= "table" then
+        return { "trigger_parity_status=FAIL", "trigger_parity_error=missing_default_data" }
+    end
+
+    for spellID in pairs(ctx.defaultSpellData) do
+        total = total + 1
+        local expected = TRIGGER_OVERRIDES[spellID] and NormalizeTrigger(TRIGGER_OVERRIDES[spellID]) or "SUCCESS"
+        local rule = ResolveRawConfig(ctx, spellID, nil, nil)
+        if not rule then
+            missing = missing + 1
+        else
+            local actual = NormalizeTrigger(rule.trigger)
+            if actual ~= expected then
+                mismatches = mismatches + 1
+                mismatchList[#mismatchList + 1] = tostring(spellID) .. ":" .. actual .. "->" .. expected
+            end
+        end
+    end
+
+    out[#out + 1] = "trigger_parity_total=" .. tostring(total)
+    out[#out + 1] = "trigger_parity_missing_rules=" .. tostring(missing)
+    out[#out + 1] = "trigger_parity_mismatches=" .. tostring(mismatches)
+    out[#out + 1] = "trigger_parity_status=" .. ((mismatches == 0) and "PASS" or "FAIL")
+    if #mismatchList > 0 then
+        out[#out + 1] = "trigger_parity_examples=" .. table.concat(mismatchList, ",")
+    end
+    return out
+end
+
+function IcicleCooldownRules.GetSpellConfig(ctx, spellID, sourceGUID, sourceName)
+    return ResolveRawConfig(ctx, spellID, sourceGUID, sourceName)
+end
+
+function IcicleCooldownRules.GetSharedTargetsForSpell(_, spellID)
+    spellID = NormalizeSpellID(spellID)
+    return SHARED_COOLDOWNS[spellID]
+end
+
+function IcicleCooldownRules.DescribeSpellRule(ctx, spellID, sourceGUID, sourceName)
+    local rule, status = ResolveRawConfig(ctx, spellID, sourceGUID, sourceName)
+    if not rule then
+        return string.format("spell=%d status=%s", spellID, status or "missing")
+    end
+
+    local sharedCount = 0
+    if type(rule.sharedTargets) == "table" then
+        for _ in pairs(rule.sharedTargets) do
+            sharedCount = sharedCount + 1
+        end
+    end
+
+    local resetCount = 0
+    if type(rule.resetSpells) == "table" then
+        for _ in pairs(rule.resetSpells) do
+            resetCount = resetCount + 1
+        end
+    end
+
+    return string.format(
+        "spell=%d normalized=%d cd=%.1f trigger=%s source=%s override=%s item=%s sharedTargets=%d resetSpells=%d spec=%s",
+        rule.originalSpellID or spellID,
+        rule.spellID,
+        rule.cd,
+        rule.trigger,
+        rule.source or "none",
+        rule.overrideApplied and "yes" or "no",
+        rule.isItem and "yes" or "no",
+        sharedCount,
+        resetCount,
+        rule.appliedSpec or "none"
+    )
+end
+
+function IcicleCooldownRules.ValidateMatrix(ctx, strictMode)
+    local out = {}
+    local sharedEdges = 0
+    for _, targets in pairs(SHARED_COOLDOWNS) do
+        for _ in pairs(targets) do
+            sharedEdges = sharedEdges + 1
+        end
+    end
+    local resetEntries = 0
+    for _, targets in pairs(RESET_COOLDOWNS) do
+        for _ in pairs(targets) do
+            resetEntries = resetEntries + 1
+        end
+    end
+
+    out[#out + 1] = "coverage_shared_edges=" .. tostring(sharedEdges) .. "/" .. tostring(EXPECTED_SHARED_EDGE_COUNT) .. ((sharedEdges >= EXPECTED_SHARED_EDGE_COUNT) and "=PASS" or "=FAIL")
+    out[#out + 1] = "coverage_reset_entries=" .. tostring(resetEntries) .. "/" .. tostring(EXPECTED_RESET_ENTRY_COUNT) .. ((resetEntries >= EXPECTED_RESET_ENTRY_COUNT) and "=PASS" or "=FAIL")
+
+    local aliasFail = false
+    for aliasID, canonicalID in pairs(ID_ALIASES) do
+        if ID_ALIASES[canonicalID] then
+            aliasFail = true
+            out[#out + 1] = "alias_chain_" .. tostring(aliasID) .. "=FAIL"
+        end
+    end
+    if not aliasFail then
+        out[#out + 1] = "alias_chain=PASS"
+    end
+
+    if not strictMode then
+        out[#out + 1] = "strict_matrix_checks=SKIP"
+        return out
+    end
+
+    local sharedFail = false
+    for srcID, targets in pairs(SHARED_COOLDOWNS) do
+        local srcRule = ResolveRawConfig(ctx, srcID, nil, nil)
+        if not srcRule then
+            out[#out + 1] = "strict_source_" .. tostring(srcID) .. "=SKIP"
+        else
+            for targetID in pairs(targets) do
+                local targetRule = ResolveRawConfig(ctx, targetID, nil, nil)
+                if not targetRule then
+                    out[#out + 1] = "strict_shared_target_" .. tostring(srcID) .. "_" .. tostring(targetID) .. "=SKIP"
+                end
+            end
+        end
+    end
+    if not sharedFail then
+        out[#out + 1] = "strict_shared_targets=PASS"
+    end
+
+    local resetFail = false
+    for srcID, targets in pairs(RESET_COOLDOWNS) do
+        local srcRule = ResolveRawConfig(ctx, srcID, nil, nil)
+        if not srcRule then
+            out[#out + 1] = "strict_reset_source_" .. tostring(srcID) .. "=SKIP"
+        else
+            for targetID in pairs(targets) do
+                local targetRule = ResolveRawConfig(ctx, targetID, nil, nil)
+                if not targetRule then
+                    out[#out + 1] = "strict_reset_target_" .. tostring(srcID) .. "_" .. tostring(targetID) .. "=SKIP"
+                end
+            end
+        end
+    end
+    if not resetFail then
+        out[#out + 1] = "strict_reset_targets=PASS"
+    end
+
+    return out
+end
+
+function IcicleCooldownRules.BuildParityReport(ctx)
+    local out = {}
+    local strictMode = true
+    local checks = IcicleCooldownRules.ValidateMatrix(ctx, strictMode)
+    local pass, fail, skip = 0, 0, 0
+    local sharedTargetSkips, resetTargetSkips = {}, {}
+    local sharedSourceSkips, resetSourceSkips = {}, {}
+
+    if type(checks) ~= "table" then
+        return { "parity_status=FAIL", "parity_error=validate_matrix_unavailable" }
+    end
+
+    for i = 1, #checks do
+        local line = tostring(checks[i] or "")
+        if string.find(line, "=PASS", 1, true) then
+            pass = pass + 1
+        elseif string.find(line, "=FAIL", 1, true) then
+            fail = fail + 1
+        elseif string.find(line, "=SKIP", 1, true) then
+            skip = skip + 1
+            if string.find(line, "strict_shared_target_", 1, true) then
+                sharedTargetSkips[#sharedTargetSkips + 1] = line
+            elseif string.find(line, "strict_reset_target_", 1, true) then
+                resetTargetSkips[#resetTargetSkips + 1] = line
+            elseif string.find(line, "strict_source_", 1, true) then
+                sharedSourceSkips[#sharedSourceSkips + 1] = line
+            elseif string.find(line, "strict_reset_source_", 1, true) then
+                resetSourceSkips[#resetSourceSkips + 1] = line
+            end
+        end
+    end
+
+    out[#out + 1] = "parity_source=IcicleDefaultMatrix"
+    out[#out + 1] = "parity_shared_edges_expected=" .. tostring(EXPECTED_SHARED_EDGE_COUNT)
+    out[#out + 1] = "parity_reset_entries_expected=" .. tostring(EXPECTED_RESET_ENTRY_COUNT)
+    out[#out + 1] = "parity_summary=PASS:" .. tostring(pass) .. ",FAIL:" .. tostring(fail) .. ",SKIP:" .. tostring(skip)
+    out[#out + 1] = "parity_unresolved_shared_sources=" .. tostring(#sharedSourceSkips)
+    out[#out + 1] = "parity_unresolved_shared_targets=" .. tostring(#sharedTargetSkips)
+    out[#out + 1] = "parity_unresolved_reset_sources=" .. tostring(#resetSourceSkips)
+    out[#out + 1] = "parity_unresolved_reset_targets=" .. tostring(#resetTargetSkips)
+    out[#out + 1] = "parity_status=" .. ((fail == 0) and "PASS" or "FAIL")
+
+    if #sharedSourceSkips > 0 then
+        out[#out + 1] = "parity_shared_source_skips=" .. table.concat(sharedSourceSkips, ",")
+    end
+    if #sharedTargetSkips > 0 then
+        out[#out + 1] = "parity_shared_target_skips=" .. table.concat(sharedTargetSkips, ",")
+    end
+    if #resetSourceSkips > 0 then
+        out[#out + 1] = "parity_reset_source_skips=" .. table.concat(resetSourceSkips, ",")
+    end
+    if #resetTargetSkips > 0 then
+        out[#out + 1] = "parity_reset_target_skips=" .. table.concat(resetTargetSkips, ",")
+    end
+
+    return out
+end
