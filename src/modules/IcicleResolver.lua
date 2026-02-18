@@ -153,8 +153,8 @@ function IcicleResolver.RegisterPendingBind(ctx, guid, name, spellName, eventTim
     end
 end
 
-function IcicleResolver.MigrateNameFallbackToGUID(ctx, name, guid)
-    local byName = ctx.STATE.fallbackCooldownsByName[name]
+function IcicleResolver.MigrateNameCooldownsToGUID(ctx, name, guid)
+    local byName = ctx.STATE.cooldownsByName[name]
     if not byName then return end
 
     ctx.STATE.cooldownsByGUID[guid] = ctx.STATE.cooldownsByGUID[guid] or {}
@@ -164,7 +164,7 @@ function IcicleResolver.MigrateNameFallbackToGUID(ctx, name, guid)
             ctx.STATE.cooldownsByGUID[guid][spellID] = rec
         end
     end
-    ctx.STATE.fallbackCooldownsByName[name] = nil
+    ctx.STATE.cooldownsByName[name] = nil
 end
 
 function IcicleResolver.RegisterCandidate(ctx, name, guid)
@@ -240,7 +240,7 @@ function IcicleResolver.TryResolvePendingBinds(ctx)
                 pending.eventTime or now
             )
             if ok then
-                IcicleResolver.MigrateNameFallbackToGUID(ctx, pending.name, guid)
+                IcicleResolver.MigrateNameCooldownsToGUID(ctx, pending.name, guid)
                 ctx.STATE.pendingBindByGUID[guid] = nil
                 if stats then
                     stats.pendingBindResolved = (stats.pendingBindResolved or 0) + 1
@@ -270,7 +270,7 @@ function IcicleResolver.ResolveUnit(ctx, unit, confidence, reason)
     local plates = ctx.STATE.visiblePlatesByName[name]
     if plates and plates.count == 1 and IcicleResolver.SetBinding(ctx, guid, plates.first, confidence, reason, name) then
         RememberReaction(ctx, guid, name, plates.first, reaction, "unit")
-        IcicleResolver.MigrateNameFallbackToGUID(ctx, name, guid)
+        IcicleResolver.MigrateNameCooldownsToGUID(ctx, name, guid)
     end
 end
 
@@ -291,3 +291,4 @@ function IcicleResolver.ResolveGroupTargets(ctx)
         end
     end
 end
+

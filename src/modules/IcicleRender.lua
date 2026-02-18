@@ -170,16 +170,16 @@ function IcicleRender.CollectDisplayRecords(ctx, meta)
     WipeArray(out)
     meta._renderRecords = out
 
-    local plateReaction = ctx.STATE.reactionByPlate and ctx.STATE.reactionByPlate[meta.plate]
-    if plateReaction and plateReaction ~= "hostile" then
-        return out
-    end
-
     if ctx.STATE.testModeActive and ctx.STATE.testByPlate[meta.plate] then
         local testRecords = ctx.STATE.testByPlate[meta.plate]
         for i = 1, #testRecords do
             out[i] = testRecords[i]
         end
+        return out
+    end
+
+    local plateReaction = ctx.STATE.reactionByPlate and ctx.STATE.reactionByPlate[meta.plate]
+    if plateReaction and plateReaction ~= "hostile" then
         return out
     end
 
@@ -204,12 +204,12 @@ function IcicleRender.CollectDisplayRecords(ctx, meta)
     end
 
     if meta.name then
-        local fallback = ctx.STATE.fallbackCooldownsByName[meta.name]
-        if fallback then
+        local byName = ctx.STATE.cooldownsByName[meta.name]
+        if byName then
             local visible = ctx.STATE.visiblePlatesByName[meta.name]
             local visibleCount = visible and visible.count or 0
-            if visibleCount == 1 or ctx.db.showAmbiguousFallback then
-                for _, rec in pairs(fallback) do
+            if visibleCount == 1 or ctx.db.showAmbiguousByName then
+                for _, rec in pairs(byName) do
                     if rec.expiresAt > now then
                         rec.__ambiguous = (visibleCount > 1)
                         tinsert(out, rec)
@@ -333,7 +333,7 @@ function IcicleRender.OnUpdate(ctx, elapsed)
         local changed = false
 
         changed = ctx.PruneExpiredStore(ctx.STATE.cooldownsByGUID, now) or changed
-        changed = ctx.PruneExpiredStore(ctx.STATE.fallbackCooldownsByName, now) or changed
+        changed = ctx.PruneExpiredStore(ctx.STATE.cooldownsByName, now) or changed
 
         if changed then
             IcicleRender.RefreshAllVisiblePlates(ctx)
@@ -361,3 +361,4 @@ function IcicleRender.OnUpdate(ctx, elapsed)
         end
     end
 end
+

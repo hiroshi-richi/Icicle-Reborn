@@ -13,7 +13,7 @@ function IcicleState.BuildInitialState()
         pendingBindByGUID = {},
 
         cooldownsByGUID = {},
-        fallbackCooldownsByName = {},
+        cooldownsByName = {},
         recentEventByUnit = {},
         recentUnitSucceededByUnit = {},
         specByGUID = {},
@@ -32,7 +32,6 @@ function IcicleState.BuildInitialState()
         inspectQueuedByGUID = {},
         inspectCurrent = nil,
         inspectOutOfRangeSince = {},
-        matrixLog = {},
 
         stats = {
             scanCount = 0,
@@ -64,3 +63,4 @@ function IcicleState.BuildInitialState()
         ui = {},
     }
 end
+

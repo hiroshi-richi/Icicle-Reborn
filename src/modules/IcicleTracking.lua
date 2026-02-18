@@ -225,11 +225,6 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
             local spellClass = ctx.SpellCategory and ctx.SpellCategory(sourceSpellID) or "unknown"
             ctx.DebugLog(string.format("class filter rejected spell=%d caster=%s casterClass=%s spellClass=%s", sourceSpellID, tostring(sourceGUID or sourceName), tostring(sourceClass), tostring(spellClass)))
         end
-        if ctx.LogMatrixAction then
-            local sourceClass = ctx.GetSourceClassCategory and ctx.GetSourceClassCategory(sourceGUID, sourceName) or "unknown"
-            local spellClass = ctx.SpellCategory and ctx.SpellCategory(sourceSpellID) or "unknown"
-            ctx.LogMatrixAction(string.format("class_reject spell=%d caster=%s casterClass=%s spellClass=%s", sourceSpellID, tostring(sourceGUID or sourceName), tostring(sourceClass), tostring(spellClass)))
-        end
         return
     end
 
@@ -271,7 +266,7 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
     if sourceGUID and sourceName then
         bound = ctx.TryBindByName(sourceGUID, sourceName, 0.9, "combatlog", spellName, now)
         if bound then
-            ctx.MigrateNameFallbackToGUID(sourceName, sourceGUID)
+            ctx.MigrateNameCooldownsToGUID(sourceName, sourceGUID)
         elseif ctx.RegisterPendingBind then
             ctx.RegisterPendingBind(sourceGUID, sourceName, spellName, now)
         end
@@ -279,7 +274,7 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
 
     if sourceName and (not sourceGUID or not bound) then
         for i = 1, #records do
-            UpsertRecord(ctx.STATE.fallbackCooldownsByName, sourceName, records[i])
+            UpsertRecord(ctx.STATE.cooldownsByName, sourceName, records[i])
         end
         hasChanges = true
     end
@@ -293,19 +288,6 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
         end
         ctx.DebugLog(string.format("matrix source=%d caster=%s sourceCd=%.1f sharedApplied=%d", sourceRule and (sourceRule.spellID or spellID) or spellID, tostring(sourceGUID or sourceName), sourceRule and (sourceRule.cd or 0) or 0, sharedCount > 0 and sharedCount or 0))
     end
-    if ctx.LogMatrixAction and #records > 0 then
-        local sharedCount = 0
-        for i = 1, #records do
-            if records[i].isShared then
-                sharedCount = sharedCount + 1
-            end
-        end
-        if isSharedOnly then
-            ctx.LogMatrixAction(string.format("shared_only source=%d caster=%s applied=%d", spellID, tostring(sourceGUID or sourceName), sharedCount))
-        else
-            ctx.LogMatrixAction(string.format("source=%d caster=%s cd=%.1f shared=%d", sourceRule.spellID or spellID, tostring(sourceGUID or sourceName), sourceRule.cd or 0, sharedCount > 0 and sharedCount or 0))
-        end
-    end
 
     local resetSpells = sourceRule and sourceRule.resetSpells or nil
     if resetSpells then
@@ -316,15 +298,12 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
             if changed then removed = removed + 1 end
         end
         if sourceName then
-            local changed = ApplyResets(ctx.STATE.fallbackCooldownsByName, sourceName, resetSpells)
+            local changed = ApplyResets(ctx.STATE.cooldownsByName, sourceName, resetSpells)
             hasChanges = changed or hasChanges
             if changed then removed = removed + 1 end
         end
         if ctx.DebugLog and removed > 0 then
             ctx.DebugLog(string.format("matrix reset source=%d caster=%s stores=%d", sourceRule.spellID or spellID, tostring(sourceGUID or sourceName), removed))
-        end
-        if ctx.LogMatrixAction and removed > 0 then
-            ctx.LogMatrixAction(string.format("reset source=%d caster=%s stores=%d", sourceRule.spellID or spellID, tostring(sourceGUID or sourceName), removed))
         end
     end
 
@@ -332,3 +311,4 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
         ctx.RefreshAllVisiblePlates()
     end
 end
+

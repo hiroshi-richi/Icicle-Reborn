@@ -1,12 +1,12 @@
-# Icicle Reborn (WotLK 3.3.5a)
+# Icicle: Reborn (WotLK 3.3.5a)
 
-Icicle Reborn tracks enemy cooldowns on legacy WotLK nameplates and renders active cooldown timers directly on each enemy plate.
+Icicle: Reborn tracks enemy cooldowns on WotLK nameplates and renders active cooldown timers directly on each enemy plate.
 
 ## Key behavior
 
 - Reads combat events and cast signals to detect cooldown usage.
 - Resolves caster identity (GUID/name) to visible nameplates.
-- Stores cooldowns by GUID, with controlled fallback by name when GUID is not yet resolved.
+- Stores cooldowns by GUID, with controlled name-based storage when GUID is not yet resolved.
 - Supports class/category spell filtering to prevent impossible class-spell matches.
 - Shows category border colors per spell category, with interrupt pulse highlight behavior.
 
@@ -21,14 +21,13 @@ Icicle Reborn tracks enemy cooldowns on legacy WotLK nameplates and renders acti
 
 All configuration is done through Blizzard Interface Options:
 
-`Game Menu -> Interface -> AddOns -> Icicle Reborn`
+`Game Menu -> Interface -> AddOns -> Icicle: Reborn`
 
 Panels:
 - `General`
 - `Style settings`
 - `Position settings`
 - `Tracked Spells`
-- `Testing`
 - `Profiles`
 
 ## Defaults and data
@@ -59,4 +58,5 @@ Panels:
 2. Verify category border colors match Tracked Spells category settings.
 3. Confirm interrupt highlight pulse appears when enabled.
 4. Test duplicate-name situations with target/focus/mouseover to stabilize mapping.
-5. Use `Testing` panel tools to run matrix/diagnostic checks.
+5. Use `General -> Test mode` for quick UI simulation checks.
+

@@ -22,7 +22,7 @@ IcicleDefaults = {
     frameStrata = "LOW",
 
     showTooltips = true,
-    showAmbiguousFallback = false,
+    showAmbiguousByName = false,
     showInterruptWhenCapped = true,
     classCategoryFilterEnabled = true,
     showOutOfRangeInspectMessages = true,
@@ -40,16 +40,11 @@ IcicleDefaults = {
     maxTrackedCooldown = 0,
 
     debug = false,
-    matrixLogEnabled = true,
-    matrixLogMaxEntries = 30,
-    matrixStrictSelfTests = false,
     persistSpecHints = false,
     specDetectEnabled = true,
     specHintTTL = 300,
     inspectRetryInterval = 1.0,
     inspectMaxRetryTime = 30.0,
-    autoLoweredFrameStrata = false,
-    defaultDatasetVersion = 1,
     defaultEnabledPresetVersion = 0,
 
     highlightInterrupts = true,
@@ -92,5 +87,4 @@ IcicleDefaults = {
     disabledSpells = {},
     specHintsByGUID = {},
     specHintsByName = {},
-    profileSchemaVersion = 3,
 }

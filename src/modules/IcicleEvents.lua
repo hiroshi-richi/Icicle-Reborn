@@ -2,7 +2,7 @@ IcicleEvents = IcicleEvents or {}
 
 function IcicleEvents.HandleEvent(ctx, event, ...)
     if event == "PLAYER_LOGIN" then
-        _G.Icicledb = ctx.ConfigModule.EnsureProfileRoot(_G.Icicledb)
+        _G.Icicledb = type(_G.Icicledb) == "table" and _G.Icicledb or {}
 
         if ctx.AceDBLib then
             ctx.aceDBRef.value = ctx.AceDBLib:New("Icicledb", { profile = _G.IcicleDefaults or {} }, "Default")
@@ -27,10 +27,7 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
             ctx.dbRef.value = _G.Icicledb.profile
         end
 
-        ctx.ConfigModule.ApplyLoginMigrations(ctx.dbRef.value, ctx.baseCooldowns)
-        if ctx.ApplyProfileMigrations then
-            ctx.ApplyProfileMigrations(ctx.dbRef.value)
-        end
+        ctx.ConfigModule.NormalizeProfile(ctx.dbRef.value, ctx.baseCooldowns)
         if ctx.EnsureDefaultSpellProfile then
             ctx.EnsureDefaultSpellProfile(ctx.dbRef.value)
         end
@@ -152,8 +149,6 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
         ctx.SyncSpecContext()
         local specChanged = ctx.SpecModule.UpdateFromCombatEvent(ctx.SPEC_CONTEXT, info.spellID, info.sourceGUID, info.sourceName)
         if specChanged then
-            local resolvedSpec = ctx.COOLDOWN_RULES_CONTEXT.GetUnitSpec(info.sourceGUID, info.sourceName) or "unknown"
-            ctx.AddMatrixActionLog(string.format("spec caster=%s spell=%d spec=%s", tostring(info.sourceGUID or info.sourceName), info.spellID, tostring(resolvedSpec)))
             ctx.RefreshAllVisiblePlates()
         end
 
@@ -198,3 +193,4 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
         ctx.StartCooldown(sourceGUID, sourceName, spellID, spellName, "SPELL_CAST_SUCCESS")
     end
 end
+

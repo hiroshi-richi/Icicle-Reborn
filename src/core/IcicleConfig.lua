@@ -73,38 +73,11 @@ function IcicleConfig.CopyDefaults(target, defaults)
     end
 end
 
-function IcicleConfig.EnsureProfileRoot(saved)
-    if type(saved) ~= "table" then
-        saved = {}
-    end
-
-    if not saved.profile then
-        local legacy = saved
-        saved = { profile = {}, profiles = {} }
-        for k, v in pairs(legacy) do
-            saved.profile[k] = v
-        end
-    end
-
-    return saved
-end
-
-function IcicleConfig.ApplyLoginMigrations(db, baseCooldowns)
-    if not db.autoLoweredFrameStrata then
-        if db.frameStrata == "HIGH" or db.frameStrata == "DIALOG" then
-            db.frameStrata = "LOW"
-        end
-        db.autoLoweredFrameStrata = true
-    end
-
+function IcicleConfig.NormalizeProfile(db, baseCooldowns)
     db.spellCategories = db.spellCategories or {}
     db.disabledSpells = db.disabledSpells or {}
     db.specHintsByGUID = db.specHintsByGUID or {}
     db.specHintsByName = db.specHintsByName or {}
-    if db.textfont == "Interface\\AddOns\\Icicle\\FreeUniversal-Regular.ttf"
-        or db.textfont == "Interface\\AddOns\\Icicle\\Hooge0655.ttf" then
-        db.textfont = "Fonts\\FRIZQT__.TTF"
-    end
     if db.persistSpecHints == nil then db.persistSpecHints = false end
     if db.specDetectEnabled == nil then db.specDetectEnabled = true end
     db.specHintTTL = math.max(30, math.min(3600, tonumber(db.specHintTTL) or 300))
@@ -117,7 +90,6 @@ function IcicleConfig.ApplyLoginMigrations(db, baseCooldowns)
     db.maxTrackedCooldown = math.max(0, tonumber(db.maxTrackedCooldown) or 0)
     db.inspectRetryInterval = math.max(0.2, math.min(5, tonumber(db.inspectRetryInterval) or 1.0))
     db.inspectMaxRetryTime = math.max(5, math.min(120, tonumber(db.inspectMaxRetryTime) or 30.0))
-    if db.defaultDatasetVersion == nil then db.defaultDatasetVersion = 1 end
     if db.highlightInterrupts == nil then db.highlightInterrupts = true end
     db.priorityBorderSize = math.max(1, math.min(6, tonumber(db.priorityBorderSize) or 1))
     db.priorityBorderInset = math.max(-2, math.min(4, tonumber(db.priorityBorderInset) or 0))
@@ -134,10 +106,6 @@ function IcicleConfig.ApplyLoginMigrations(db, baseCooldowns)
             db.categoryBorderColors[category] = { r = color.r, g = color.g, b = color.b, a = color.a }
         end
     end
-    if db.matrixLogEnabled == nil then db.matrixLogEnabled = true end
-    if db.matrixStrictSelfTests == nil then db.matrixStrictSelfTests = false end
-    db.matrixLogMaxEntries = math.max(5, math.min(200, tonumber(db.matrixLogMaxEntries) or 30))
-    db.profileSchemaVersion = tonumber(db.profileSchemaVersion) or 0
     db.defaultEnabledPresetVersion = tonumber(db.defaultEnabledPresetVersion) or 0
 
     if baseCooldowns then
@@ -197,3 +165,4 @@ function IcicleConfig.SetConfigValue(db, key, value, validPoints, validGrow)
 
     return true
 end
+

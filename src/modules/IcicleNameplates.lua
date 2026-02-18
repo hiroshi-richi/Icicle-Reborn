@@ -102,7 +102,7 @@ function IcicleNameplates.IsLikelyNamePlate(frame)
         return false
     end
 
-    -- Classic/WotLK fallback heuristic used by legacy nameplate addons.
+    -- Classic/WotLK nameplate heuristic.
     if frame:GetNumRegions() > 2 and frame:GetNumChildren() >= 1 then
         frame.IcicleIsPlate = true
         return true
