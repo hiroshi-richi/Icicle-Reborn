@@ -39,7 +39,7 @@ IcicleData.DEFAULT_SPELLS_BY_CATEGORY = {
         [50356] = { cd = 120, enabledDefault = true, types = { item = true } }, -- Corroded Skeleton Key
         [50364] = { cd = 60, enabledDefault = true, types = { item = true } }, -- Sindragosa's Flawless Fang
         [50726] = { cd = 120, enabledDefault = true, types = { item = true } }, -- Bauble of True Blood
-        [51378] = { cd = 120, enabledDefault = true, types = { shared = true, item = true } }, -- PvP Trinket
+        [42122] = { cd = 120, enabledDefault = true, types = { shared = true, item = true } }, -- PvP Trinket
         [58984] = { cd = 120, enabledDefault = false, types = { racial = true } }, -- Shadowmeld
         [59752] = { cd = 120, enabledDefault = true, types = { shared = true, racial = true } }, -- Every Man for Himself
     },

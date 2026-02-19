@@ -1,17 +1,17 @@
 IcicleConfig = IcicleConfig or {}
 
 local CATEGORY_BORDER_DEFAULTS = {
-    GENERAL = { r = 0.62, g = 0.62, b = 0.62, a = 1.00 },
-    WARRIOR = { r = 0.78, g = 0.61, b = 0.43, a = 1.00 },
-    PALADIN = { r = 0.96, g = 0.55, b = 0.73, a = 1.00 },
-    HUNTER = { r = 0.67, g = 0.83, b = 0.45, a = 1.00 },
-    ROGUE = { r = 1.00, g = 0.96, b = 0.41, a = 1.00 },
+    GENERAL = { r = 0.502, g = 0.502, b = 0.502, a = 1.00 },
+    WARRIOR = { r = 0.780, g = 0.612, b = 0.431, a = 1.00 },
+    PALADIN = { r = 0.961, g = 0.549, b = 0.729, a = 1.00 },
+    HUNTER = { r = 0.671, g = 0.831, b = 0.451, a = 1.00 },
+    ROGUE = { r = 1.000, g = 0.961, b = 0.412, a = 1.00 },
     PRIEST = { r = 1.00, g = 1.00, b = 1.00, a = 1.00 },
-    DEATH_KNIGHT = { r = 0.77, g = 0.12, b = 0.23, a = 1.00 },
-    SHAMAN = { r = 0.00, g = 0.44, b = 0.87, a = 1.00 },
-    MAGE = { r = 0.41, g = 0.80, b = 0.94, a = 1.00 },
-    WARLOCK = { r = 0.58, g = 0.51, b = 0.79, a = 1.00 },
-    DRUID = { r = 1.00, g = 0.49, b = 0.04, a = 1.00 },
+    DEATH_KNIGHT = { r = 0.769, g = 0.122, b = 0.231, a = 1.00 },
+    SHAMAN = { r = 0.000, g = 0.439, b = 0.871, a = 1.00 },
+    MAGE = { r = 0.247, g = 0.780, b = 0.922, a = 1.00 },
+    WARLOCK = { r = 0.529, g = 0.533, b = 0.933, a = 1.00 },
+    DRUID = { r = 1.000, g = 0.490, b = 0.039, a = 1.00 },
 }
 
 local function GetDefaultCategoryForSpell(spellID)
@@ -59,6 +59,56 @@ local function ApplyDefaultEnabledPreset(db, baseCooldowns)
     db.defaultEnabledPresetVersion = 1
 end
 
+local function RemapSpellKeySimple(tableRef, fromID, toID)
+    if type(tableRef) ~= "table" or fromID == toID then
+        return
+    end
+    local fromValue = tableRef[fromID]
+    if fromValue == nil then
+        return
+    end
+    if tableRef[toID] == nil then
+        tableRef[toID] = fromValue
+    end
+    tableRef[fromID] = nil
+end
+
+local function RemapPvpTrinketCanonicalIDs(db)
+    if type(db) ~= "table" then
+        return
+    end
+
+    local fromID = 51378
+    local toID = 42122
+    if fromID == toID then
+        return
+    end
+
+    RemapSpellKeySimple(db.customSpells, fromID, toID)
+    RemapSpellKeySimple(db.spellOverrides, fromID, toID)
+
+    if type(db.disabledSpells) == "table" and db.disabledSpells[fromID] ~= nil then
+        if db.disabledSpells[toID] == nil then
+            db.disabledSpells[toID] = db.disabledSpells[fromID]
+        end
+        db.disabledSpells[fromID] = nil
+    end
+
+    if type(db.removedBaseSpells) == "table" and db.removedBaseSpells[fromID] ~= nil then
+        if db.removedBaseSpells[toID] == nil then
+            db.removedBaseSpells[toID] = db.removedBaseSpells[fromID]
+        end
+        db.removedBaseSpells[fromID] = nil
+    end
+
+    if type(db.spellCategories) == "table" and db.spellCategories[fromID] ~= nil then
+        if db.spellCategories[toID] == nil then
+            db.spellCategories[toID] = db.spellCategories[fromID]
+        end
+        db.spellCategories[fromID] = nil
+    end
+end
+
 function IcicleConfig.CopyDefaults(target, defaults)
     for k, v in pairs(defaults) do
         if type(v) == "table" then
@@ -88,6 +138,7 @@ function IcicleConfig.NormalizeProfile(db, baseCooldowns)
     db.inspectRetryInterval = math.max(0.2, math.min(5, tonumber(db.inspectRetryInterval) or 1.0))
     db.inspectMaxRetryTime = math.max(5, math.min(120, tonumber(db.inspectMaxRetryTime) or 30.0))
     if db.highlightInterrupts == nil then db.highlightInterrupts = true end
+    if db.showBorders == nil then db.showBorders = true end
     db.priorityBorderSize = math.max(1, math.min(6, tonumber(db.priorityBorderSize) or 1))
     db.priorityBorderInset = math.max(-2, math.min(4, tonumber(db.priorityBorderInset) or 0))
     db.priorityBorderPulseIntensity = math.max(0, math.min(1, tonumber(db.priorityBorderPulseIntensity) or 1))
@@ -104,6 +155,7 @@ function IcicleConfig.NormalizeProfile(db, baseCooldowns)
         end
     end
     db.defaultEnabledPresetVersion = tonumber(db.defaultEnabledPresetVersion) or 0
+    RemapPvpTrinketCanonicalIDs(db)
 
     if baseCooldowns then
         for spellID in pairs(baseCooldowns) do

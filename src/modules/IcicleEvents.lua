@@ -1,5 +1,12 @@
 IcicleEvents = IcicleEvents or {}
 
+local ALLOWED_COMBATLOG_SUBEVENTS = {
+    SPELL_CAST_SUCCESS = true,
+    SPELL_AURA_APPLIED = true,
+    SPELL_CAST_START = true,
+    SPELL_MISSED = true,
+}
+
 function IcicleEvents.HandleEvent(ctx, event, ...)
     if event == "PLAYER_LOGIN" then
         _G.Icicledb = type(_G.Icicledb) == "table" and _G.Icicledb or {}
@@ -75,6 +82,8 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
         ctx.WipeTable(ctx.STATE.inspectQueue)
         ctx.WipeTable(ctx.STATE.inspectQueuedByGUID)
         ctx.WipeTable(ctx.STATE.inspectOutOfRangeSince)
+        ctx.WipeTable(ctx.STATE.inspectOutOfRangeUnits)
+        ctx.WipeTable(ctx.STATE.feignDeathAuraByGUID)
         ctx.STATE.inspectCurrent = nil
         ctx.ScanNameplates()
         ctx.RefreshAllVisiblePlates()
@@ -112,6 +121,9 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
     if event == "UNIT_AURA" then
         local unit = ...
         if not unit or unit == "" then return end
+        if ctx.HandleFeignDeathAura then
+            ctx.HandleFeignDeathAura(unit)
+        end
         ctx.SyncSpecContext()
         local changed = ctx.SpecModule.UpdateFromUnitAura(ctx.SPEC_CONTEXT, unit)
         if changed then
@@ -136,6 +148,10 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
 
     if event == "COMBAT_LOG_EVENT_UNFILTERED" then
         if not ctx.IsEnabledInCurrentZone() then return end
+        local subEvent = select(2, ...)
+        if not ALLOWED_COMBATLOG_SUBEVENTS[subEvent] then
+            return
+        end
 
         local info = ctx.CombatModule.ParseCombatLog(...)
         if not info.spellID or not info.sourceName then return end

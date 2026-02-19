@@ -58,6 +58,7 @@ RequireFunction("IcicleTooltip", TooltipModule, "GetSpellOrItemInfo")
 RequireFunction("IcicleTooltip", TooltipModule, "BuildSpellTooltipText")
 RequireFunction("IcicleTooltip", TooltipModule, "BuildSpellPanelDesc")
 RequireFunction("IcicleTooltip", TooltipModule, "GetSpellDescSafe")
+RequireFunction("IcicleTooltip", TooltipModule, "PreloadEnabledItemDisplayInfo")
 RequireFunction("IcicleTracking", TrackingModule, "StartCooldown")
 RequireFunction("IcicleNameplates", NameplatesModule, "FindBars")
 RequireFunction("IcicleNameplates", NameplatesModule, "FindFontStringNameRegion")
@@ -92,6 +93,7 @@ local GetSpellOrItemInfo = TooltipModule.GetSpellOrItemInfo
 local BuildSpellTooltipText = TooltipModule.BuildSpellTooltipText
 local BuildSpellPanelDesc = TooltipModule.BuildSpellPanelDesc
 GetSpellDescSafe = TooltipModule.GetSpellDescSafe
+local PreloadEnabledItemDisplayInfo = TooltipModule.PreloadEnabledItemDisplayInfo
 
 if type(DataModule.SPELL_CATEGORY_ORDER) ~= "table" then
     error("Icicle: Reborn: IcicleData.SPELL_CATEGORY_ORDER is required")
@@ -423,15 +425,15 @@ end
 
 local function EventMatchesTrigger(eventType, trigger)
     if trigger == "SUCCESS" then
-        return eventType == "SPELL_CAST_SUCCESS"
+        return eventType == "SPELL_CAST_SUCCESS" or eventType == "SPELL_MISSED"
     elseif trigger == "AURA_APPLIED" then
         return eventType == "SPELL_AURA_APPLIED"
     elseif trigger == "START" then
         return eventType == "SPELL_CAST_START"
     elseif trigger == "ANY" then
-        return eventType == "SPELL_CAST_SUCCESS" or eventType == "SPELL_AURA_APPLIED" or eventType == "SPELL_CAST_START"
+        return eventType == "SPELL_CAST_SUCCESS" or eventType == "SPELL_AURA_APPLIED" or eventType == "SPELL_CAST_START" or eventType == "SPELL_MISSED"
     end
-    return eventType == "SPELL_CAST_SUCCESS"
+    return eventType == "SPELL_CAST_SUCCESS" or eventType == "SPELL_MISSED"
 end
 
 local function EnsureContainer(meta)
@@ -774,6 +776,7 @@ local TRACKING_CONTEXT = {
     MigrateNameCooldownsToGUID = MigrateNameCooldownsToGUID,
     RefreshAllVisiblePlates = RefreshAllVisiblePlates,
     IsItemSpell = IsItemSpell,
+    GetSpellOrItemInfo = GetSpellOrItemInfo,
     SpellCategory = SpellCategory,
     GetSourceClassCategory = GetSourceClassCategory,
 }
@@ -845,6 +848,7 @@ local BuildOptionsPanel
 local NotifySpellsChanged
 local GetBaseSpellEntry
 local ProcessInspectQueue
+local PrimeEnabledItemDisplayInfo
 local TESTMODE_CONTEXT = {
     STATE = STATE,
     baseCooldowns = BASE_COOLDOWNS,
@@ -852,6 +856,7 @@ local TESTMODE_CONTEXT = {
     RefreshAllVisiblePlates = RefreshAllVisiblePlates,
     Print = Print,
     IsItemSpell = IsItemSpell,
+    GetSpellOrItemInfo = GetSpellOrItemInfo,
     GetSharedCooldownTargets = function(spellID)
         SyncCooldownRulesContext()
         if CooldownRulesModule.GetSharedTargetsForSpell then
@@ -866,26 +871,38 @@ local TESTMODE_CONTEXT = {
 
 local function PopulateRandomPlateTests()
     TESTMODE_CONTEXT.baseCooldowns = BASE_COOLDOWNS
+    TESTMODE_CONTEXT.db = db
+    TESTMODE_CONTEXT.BuildSpellRowsData = BuildSpellRowsData
     return TestModeModule.PopulateRandomPlateTests(TESTMODE_CONTEXT)
 end
 
 local function RandomizeTestMode()
     TESTMODE_CONTEXT.baseCooldowns = BASE_COOLDOWNS
+    TESTMODE_CONTEXT.db = db
+    TESTMODE_CONTEXT.BuildSpellRowsData = BuildSpellRowsData
     return TestModeModule.RandomizeTestMode(TESTMODE_CONTEXT)
 end
 
 local function StopTestMode()
     TESTMODE_CONTEXT.baseCooldowns = BASE_COOLDOWNS
+    TESTMODE_CONTEXT.db = db
+    TESTMODE_CONTEXT.BuildSpellRowsData = BuildSpellRowsData
     return TestModeModule.StopTestMode(TESTMODE_CONTEXT)
 end
 
 local function StartTestMode()
     TESTMODE_CONTEXT.baseCooldowns = BASE_COOLDOWNS
+    TESTMODE_CONTEXT.db = db
+    TESTMODE_CONTEXT.BuildSpellRowsData = BuildSpellRowsData
+    PrimeEnabledItemDisplayInfo()
     return TestModeModule.StartTestMode(TESTMODE_CONTEXT)
 end
 
 ToggleTestMode = function()
     TESTMODE_CONTEXT.baseCooldowns = BASE_COOLDOWNS
+    TESTMODE_CONTEXT.db = db
+    TESTMODE_CONTEXT.BuildSpellRowsData = BuildSpellRowsData
+    PrimeEnabledItemDisplayInfo()
     return TestModeModule.ToggleTestMode(TESTMODE_CONTEXT)
 end
 
@@ -909,8 +926,16 @@ local function BuildSpellRowsData()
     return SpellsModule.BuildSpellRowsData(SPELLS_CONTEXT)
 end
 
+PrimeEnabledItemDisplayInfo = function()
+    if not db then
+        return
+    end
+    PreloadEnabledItemDisplayInfo(db, DEFAULT_ITEM_IDS, IsItemSpell)
+end
+
 NotifySpellsChanged = function()
     SPELL_IDS_BY_NAME = nil
+    PrimeEnabledItemDisplayInfo()
     if STATE.rebuildSpellArgs then
         STATE.rebuildSpellArgs()
     end
@@ -965,6 +990,7 @@ local function ProfilesChanged()
     SPELL_IDS_BY_NAME = nil
     ConfigModule.NormalizeProfile(db, BASE_COOLDOWNS)
     EnsureDefaultSpellProfile(db)
+    PrimeEnabledItemDisplayInfo()
     SyncSpecHintsFromDB()
     RebuildInternalAPI()
     RefreshAllVisiblePlates()
@@ -1032,6 +1058,92 @@ end
 local function HandleUnitSignal(unit, confidence, reason)
     ResolveUnit(unit, confidence, reason)
     RefreshAllVisiblePlates()
+end
+
+local FEIGN_DEATH_SPELL_ID = 5384
+local FEIGN_DEATH_SPELL_NAME = GetSpellInfo(FEIGN_DEATH_SPELL_ID)
+
+local function HasActiveCooldownForUnit(unitGUID, unitName, spellID)
+    local now = GetTime()
+    if unitGUID and STATE.cooldownsByGUID[unitGUID] and STATE.cooldownsByGUID[unitGUID][spellID] then
+        local rec = STATE.cooldownsByGUID[unitGUID][spellID]
+        if rec and rec.expiresAt and rec.expiresAt > now then
+            return true
+        end
+    end
+    if unitName and STATE.cooldownsByName[unitName] and STATE.cooldownsByName[unitName][spellID] then
+        local rec = STATE.cooldownsByName[unitName][spellID]
+        if rec and rec.expiresAt and rec.expiresAt > now then
+            return true
+        end
+    end
+    return false
+end
+
+local function IsFeignDeathAuraActive(unit)
+    if not unit or unit == "" or not UnitExists(unit) then
+        return false
+    end
+    for i = 1, 40 do
+        local auraName, _, _, _, _, _, _, _, _, _, auraSpellID = UnitAura(unit, i, "HELPFUL")
+        if not auraName then
+            break
+        end
+        if auraSpellID == FEIGN_DEATH_SPELL_ID or (FEIGN_DEATH_SPELL_NAME and auraName == FEIGN_DEATH_SPELL_NAME) then
+            return true
+        end
+    end
+    return false
+end
+
+local function HandleFeignDeathAura(unit)
+    if not db or not IsEnabledInCurrentZone() then
+        return
+    end
+    if not unit or unit == "" or not UnitExists(unit) then
+        return
+    end
+    if not UnitCanAttack("player", unit) then
+        return
+    end
+
+    local unitGUID = UnitGUID(unit)
+    local unitName = ShortName(UnitName(unit))
+    if not unitGUID or not unitName then
+        return
+    end
+
+    local isActive = IsFeignDeathAuraActive(unit)
+    local wasActive = STATE.feignDeathAuraByGUID[unitGUID] and true or false
+
+    if isActive then
+        STATE.feignDeathAuraByGUID[unitGUID] = true
+        return
+    end
+
+    if not wasActive then
+        return
+    end
+
+    STATE.feignDeathAuraByGUID[unitGUID] = nil
+    if HasActiveCooldownForUnit(unitGUID, unitName, FEIGN_DEATH_SPELL_ID) then
+        return
+    end
+
+    local sourceKey = unitGUID or unitName
+    local window = ConstantsModule.SPELL_DEDUPE_WINDOW and ConstantsModule.SPELL_DEDUPE_WINDOW[FEIGN_DEATH_SPELL_ID]
+    if window and window > 0 and sourceKey then
+        STATE.recentUnitSucceededByUnit[sourceKey] = STATE.recentUnitSucceededByUnit[sourceKey] or {}
+        local now = GetTime()
+        local prev = STATE.recentUnitSucceededByUnit[sourceKey][FEIGN_DEATH_SPELL_ID]
+        if prev and (now - prev) < window then
+            return
+        end
+        STATE.recentUnitSucceededByUnit[sourceKey][FEIGN_DEATH_SPELL_ID] = now
+    end
+
+    ResolveUnit(unit, 0.97, "unit-aura-feign")
+    StartCooldown(unitGUID, unitName, FEIGN_DEATH_SPELL_ID, FEIGN_DEATH_SPELL_NAME, "SPELL_CAST_SUCCESS")
 end
 
 local function ShouldSuppressUnitCast(unitKey, spellID)
@@ -1106,6 +1218,52 @@ local function QueueInspectForUnit(unit)
     STATE.inspectQueuedByGUID[guid] = true
 end
 
+local function IsInspectUnitInRange(unit)
+    if not unit or not UnitExists(unit) then
+        return false
+    end
+    if CheckInteractDistance then
+        local inRange = CheckInteractDistance(unit, 1)
+        if inRange == 1 then
+            return true
+        end
+        if inRange == 0 then
+            return false
+        end
+    end
+    if CanInspect then
+        return CanInspect(unit, true) and true or false
+    end
+    return true
+end
+
+local function RecordInspectOutOfRangeUnit(guid, unit)
+    if not guid then
+        return
+    end
+    STATE.inspectOutOfRangeUnits[guid] = tostring(UnitName(unit) or guid)
+end
+
+local function FlushInspectOutOfRangeMessage()
+    if not db or not db.showOutOfRangeInspectMessages then
+        WipeTable(STATE.inspectOutOfRangeUnits)
+        return
+    end
+
+    local names = {}
+    for _, unitName in pairs(STATE.inspectOutOfRangeUnits) do
+        names[#names + 1] = tostring(unitName)
+    end
+    WipeTable(STATE.inspectOutOfRangeUnits)
+
+    if #names == 0 then
+        return
+    end
+
+    table.sort(names)
+    Print("Inspect skipped (out of range): " .. table.concat(names, ", "))
+end
+
 ProcessInspectQueue = function()
     if not db or not NotifyInspect or #STATE.inspectQueue == 0 then
         return
@@ -1129,6 +1287,7 @@ ProcessInspectQueue = function()
     local now = GetTime()
     local retryInterval = tonumber(db.inspectRetryInterval) or 1.0
     local maxRetry = tonumber(db.inspectMaxRetryTime) or 30
+    local selectedIndex = nil
 
     for i = 1, #STATE.inspectQueue do
         local entry = STATE.inspectQueue[i]
@@ -1137,42 +1296,54 @@ ProcessInspectQueue = function()
             local guid = entry.guid
             local tooOld = (now - (entry.enqueuedAt or now)) > maxRetry
             if tooOld then
+                if STATE.inspectOutOfRangeSince[guid] then
+                    RecordInspectOutOfRangeUnit(guid, unit)
+                end
                 RemoveInspectQueueEntryAt(i)
-                return
+                break
             end
 
             if not unit or not UnitExists(unit) or UnitGUID(unit) ~= guid then
                 RemoveInspectQueueEntryAt(i)
-                return
+                break
             end
 
-            if CanInspect and not CanInspect(unit, true) then
+            if not IsInspectUnitInRange(unit) then
                 if not STATE.inspectOutOfRangeSince[guid] then
                     STATE.inspectOutOfRangeSince[guid] = now
                 end
                 if (now - STATE.inspectOutOfRangeSince[guid]) >= maxRetry then
-                    if db.showOutOfRangeInspectMessages then
-                        Print("Inspect skipped (out of range): " .. tostring(UnitName(unit) or guid))
-                    end
+                    RecordInspectOutOfRangeUnit(guid, unit)
                     RemoveInspectQueueEntryAt(i)
                     STATE.inspectOutOfRangeSince[guid] = nil
+                    break
                 end
-                return
+            else
+                STATE.inspectOutOfRangeSince[guid] = nil
+                if not selectedIndex and (now - (entry.lastTryAt or 0)) >= retryInterval then
+                    selectedIndex = i
+                end
             end
-
-            STATE.inspectOutOfRangeSince[guid] = nil
-            if (now - (entry.lastTryAt or 0)) < retryInterval then
-                return
-            end
-
-            entry.lastTryAt = now
-            STATE.inspectRequestAtByGUID[guid] = now
-            STATE.inspectUnitByGUID[guid] = unit
-            STATE.inspectCurrent = { guid = guid, unit = unit, requestedAt = now }
-            NotifyInspect(unit)
-            return
         end
     end
+
+    if next(STATE.inspectOutOfRangeUnits) then
+        FlushInspectOutOfRangeMessage()
+    end
+
+    if not selectedIndex then
+        return
+    end
+
+    local entry = STATE.inspectQueue[selectedIndex]
+    if not entry then
+        return
+    end
+    entry.lastTryAt = now
+    STATE.inspectRequestAtByGUID[entry.guid] = now
+    STATE.inspectUnitByGUID[entry.guid] = entry.unit
+    STATE.inspectCurrent = { guid = entry.guid, unit = entry.unit, requestedAt = now }
+    NotifyInspect(entry.unit)
 end
 
 local function HandleInspectTalentReady(guid)
@@ -1215,6 +1386,7 @@ local function HandleInspectTalentReady(guid)
     STATE.inspectUnitByGUID[guid] = nil
     STATE.inspectCurrent = nil
     STATE.inspectOutOfRangeSince[guid] = nil
+    STATE.inspectOutOfRangeUnits[guid] = nil
     RemoveInspectQueueByGUID(guid)
     if ClearInspectPlayer then
         ClearInspectPlayer()
@@ -1257,6 +1429,7 @@ local EVENTS_CONTEXT = {
     ScanNameplates = ScanNameplates,
     RefreshAllVisiblePlates = RefreshAllVisiblePlates,
     HandleUnitSignal = HandleUnitSignal,
+    HandleFeignDeathAura = HandleFeignDeathAura,
     ShouldSuppressUnitCast = ShouldSuppressUnitCast,
     QueueInspectForUnit = QueueInspectForUnit,
     HandleInspectTalentReady = HandleInspectTalentReady,

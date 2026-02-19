@@ -215,7 +215,12 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
                 desc = "Moves border inward/outward relative to icon edges.",
                 min = -2, max = 4, step = 1,
             },
-            spacer2 = { type = "description", order = 9.3, name = "\n", width = "full" },
+            showBorders = {
+                type = "toggle",
+                order = 9.3,
+                name = "Show borders",
+                desc = "Show category color borders.",
+            }
         },
     }
 
@@ -247,7 +252,7 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
     local tmpAddSpellIDByCategory = {}
     local spellSearchText = ""
     local categoryBorderDefaults = {
-        GENERAL = { r = 0.62, g = 0.62, b = 0.62, a = 1.00 },
+        GENERAL = { r = 0.502, g = 0.502, b = 0.502, a = 1.00 },
         WARRIOR = { r = 0.78, g = 0.61, b = 0.43, a = 1.00 },
         PALADIN = { r = 0.96, g = 0.55, b = 0.73, a = 1.00 },
         HUNTER = { r = 0.67, g = 0.83, b = 0.45, a = 1.00 },

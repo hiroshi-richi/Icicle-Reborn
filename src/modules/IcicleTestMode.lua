@@ -37,42 +37,80 @@ end
 local function BuildTestPool(ctx)
     ctx.WipeTable(ctx.STATE.testPool)
     ctx.STATE.testPoolByType = { interrupt = {}, shared = {}, item = {}, special = {}, normal = {} }
+
+    if type(ctx.BuildSpellRowsData) == "function" then
+        local rows = ctx.BuildSpellRowsData() or {}
+        for i = 1, #rows do
+            local row = rows[i]
+            local spellID = row and row.id
+            local cd = row and tonumber(row.cd) or 0
+            local rule = nil
+            if spellID and type(ctx.GetCooldownRule) == "function" then
+                rule = ctx.GetCooldownRule(spellID, nil, nil)
+            end
+            if spellID and row.enabled and rule and cd and cd > 0 then
+                local entry = {
+                    spellID = spellID,
+                    cd = cd,
+                    isInterrupt = IsInterruptSpell(spellID),
+                    isShared = IsSharedSpell(ctx, spellID),
+                    isItem = row.isItem and true or false,
+                    isSpecial = IsSpecialModifierSpell(ctx, spellID),
+                }
+                tinsert(ctx.STATE.testPool, entry)
+                if entry.isInterrupt then tinsert(ctx.STATE.testPoolByType.interrupt, entry) end
+                if entry.isShared then tinsert(ctx.STATE.testPoolByType.shared, entry) end
+                if entry.isItem then tinsert(ctx.STATE.testPoolByType.item, entry) end
+                if entry.isSpecial then tinsert(ctx.STATE.testPoolByType.special, entry) end
+                if (not entry.isInterrupt) and (not entry.isShared) and (not entry.isItem) and (not entry.isSpecial) then
+                    tinsert(ctx.STATE.testPoolByType.normal, entry)
+                end
+            end
+        end
+        return
+    end
+
     if not ctx.baseCooldowns then
         return
     end
 
     for spellID, cfg in pairs(ctx.baseCooldowns) do
-        local cd
-        if type(cfg) == "number" then
-            cd = cfg
-        elseif type(cfg) == "table" then
-            cd = cfg.cd or cfg.duration
+        local rule = nil
+        if type(ctx.GetCooldownRule) == "function" then
+            rule = ctx.GetCooldownRule(spellID, nil, nil)
         end
-        if cd and cd > 0 then
-            local entry = {
-                spellID = spellID,
-                cd = cd,
-                isInterrupt = IsInterruptSpell(spellID),
-                isShared = IsSharedSpell(ctx, spellID),
-                isItem = ctx.IsItemSpell and (ctx.IsItemSpell(spellID) and true or false) or false,
-                isSpecial = IsSpecialModifierSpell(ctx, spellID),
-            }
-            tinsert(ctx.STATE.testPool, entry)
-            if entry.isInterrupt then tinsert(ctx.STATE.testPoolByType.interrupt, entry) end
-            if entry.isShared then tinsert(ctx.STATE.testPoolByType.shared, entry) end
-            if entry.isItem then tinsert(ctx.STATE.testPoolByType.item, entry) end
-            if entry.isSpecial then tinsert(ctx.STATE.testPoolByType.special, entry) end
-            if (not entry.isInterrupt) and (not entry.isShared) and (not entry.isItem) and (not entry.isSpecial) then
-                tinsert(ctx.STATE.testPoolByType.normal, entry)
+        if rule then
+            local cd
+            if type(cfg) == "number" then
+                cd = cfg
+            elseif type(cfg) == "table" then
+                cd = cfg.cd or cfg.duration
+            end
+            if cd and cd > 0 then
+                local entry = {
+                    spellID = spellID,
+                    cd = cd,
+                    isInterrupt = IsInterruptSpell(spellID),
+                    isShared = IsSharedSpell(ctx, spellID),
+                    isItem = ctx.IsItemSpell and (ctx.IsItemSpell(spellID) and true or false) or false,
+                    isSpecial = IsSpecialModifierSpell(ctx, spellID),
+                }
+                tinsert(ctx.STATE.testPool, entry)
+                if entry.isInterrupt then tinsert(ctx.STATE.testPoolByType.interrupt, entry) end
+                if entry.isShared then tinsert(ctx.STATE.testPoolByType.shared, entry) end
+                if entry.isItem then tinsert(ctx.STATE.testPoolByType.item, entry) end
+                if entry.isSpecial then tinsert(ctx.STATE.testPoolByType.special, entry) end
+                if (not entry.isInterrupt) and (not entry.isShared) and (not entry.isItem) and (not entry.isSpecial) then
+                    tinsert(ctx.STATE.testPoolByType.normal, entry)
+                end
             end
         end
     end
 end
 
 local function EnsurePools(ctx)
-    if #ctx.STATE.testPool == 0 or not ctx.STATE.testPoolByType then
-        BuildTestPool(ctx)
-    end
+    -- Rebuild every time so test mode always reflects current enabled/disabled tracking state.
+    BuildTestPool(ctx)
 end
 
 local function RandomFromList(list)
@@ -87,11 +125,16 @@ local function RandomSpellEntry(ctx)
     return RandomFromList(ctx.STATE.testPool)
 end
 
-local function AddPick(records, used, now, pick)
+local function AddPick(ctx, records, used, now, pick)
     if not pick or used[pick.spellID] then
         return false
     end
-    local spellName, _, tex = GetSpellInfo(pick.spellID)
+    local spellName, tex
+    if ctx and ctx.GetSpellOrItemInfo then
+        spellName, tex = ctx.GetSpellOrItemInfo(pick.spellID, pick.isItem and true or false)
+    else
+        spellName, _, tex = GetSpellInfo(pick.spellID)
+    end
     local duration = math.max(4, math.floor(pick.cd * (0.3 + math.random())))
     records[#records + 1] = {
         spellID = pick.spellID,
@@ -116,17 +159,17 @@ local function FillSmartRecords(ctx, records, now, totalCount)
     local pools = ctx.STATE.testPoolByType or {}
 
     -- Ensure key visual scenarios are present whenever possible.
-    AddPick(records, used, now, RandomFromList(pools.interrupt))
-    AddPick(records, used, now, RandomFromList(pools.shared))
-    AddPick(records, used, now, RandomFromList(pools.special))
-    AddPick(records, used, now, RandomFromList(pools.item))
+    AddPick(ctx, records, used, now, RandomFromList(pools.interrupt))
+    AddPick(ctx, records, used, now, RandomFromList(pools.shared))
+    AddPick(ctx, records, used, now, RandomFromList(pools.special))
+    AddPick(ctx, records, used, now, RandomFromList(pools.item))
 
     while #records < totalCount do
         local pick = RandomSpellEntry(ctx)
         if not pick then
             break
         end
-        AddPick(records, used, now, pick)
+        AddPick(ctx, records, used, now, pick)
         if #records > #ctx.STATE.testPool then
             break
         end

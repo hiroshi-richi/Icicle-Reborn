@@ -3,9 +3,12 @@ IcicleTooltip = IcicleTooltip or {}
 local floor = math.floor
 local format = string.format
 local tinsert = table.insert
+local UnitFactionGroup = UnitFactionGroup
 
 local spellTooltip = CreateFrame("GameTooltip", "IcicleSpellTooltipScanner", UIParent, "GameTooltipTemplate")
 local spellTooltipCache = {}
+local PVP_TRINKET_CANONICAL_ID = 42122
+local PVP_TRINKET_HORDE_DISPLAY_ID = 42123
 
 local function IsEmptyString(s)
     if not s then return true end
@@ -78,7 +81,22 @@ local function ScanTooltipDescriptionRaw(spellID, isItem)
     return desc
 end
 
+function IcicleTooltip.ResolveDisplaySpellOrItemID(spellID, isItem)
+    if not spellID then
+        return spellID
+    end
+    if isItem and spellID == PVP_TRINKET_CANONICAL_ID then
+        local faction = UnitFactionGroup and UnitFactionGroup("player")
+        if faction == "Horde" then
+            return PVP_TRINKET_HORDE_DISPLAY_ID
+        end
+    end
+    return spellID
+end
+
 function IcicleTooltip.GetSpellOrItemInfo(spellID, isItem)
+    spellID = IcicleTooltip.ResolveDisplaySpellOrItemID(spellID, isItem)
+
     if isItem then
         local itemName, _, _, _, _, _, _, _, _, itemTexture = GetItemInfo(spellID)
         return itemName, itemTexture or GetItemIcon(spellID)
@@ -89,7 +107,50 @@ end
 
 function IcicleTooltip.GetSpellDescSafe(spellID, isItem)
     if not spellID then return "No description available." end
+    spellID = IcicleTooltip.ResolveDisplaySpellOrItemID(spellID, isItem)
     return ScanTooltipDescriptionRaw(spellID, isItem)
+end
+
+function IcicleTooltip.PreloadEnabledItemDisplayInfo(db, defaultItemIDs, isItemSpellFn)
+    if type(db) ~= "table" then
+        return
+    end
+
+    local queued = {}
+    local function QueueItem(spellID)
+        local displayID = IcicleTooltip.ResolveDisplaySpellOrItemID(spellID, true)
+        if not displayID or queued[displayID] then
+            return
+        end
+        queued[displayID] = true
+        GetItemInfo(displayID)
+        GetItemIcon(displayID)
+        ScanTooltipDescriptionRaw(displayID, true)
+    end
+
+    if type(defaultItemIDs) == "table" then
+        for spellID in pairs(defaultItemIDs) do
+            if not (db.removedBaseSpells and db.removedBaseSpells[spellID]) and not (db.disabledSpells and db.disabledSpells[spellID]) then
+                QueueItem(spellID)
+            end
+        end
+    end
+
+    if type(db.customSpells) == "table" then
+        for spellID, entry in pairs(db.customSpells) do
+            if not (db.disabledSpells and db.disabledSpells[spellID]) then
+                local isItem = false
+                if type(isItemSpellFn) == "function" then
+                    isItem = isItemSpellFn(spellID) and true or false
+                elseif type(entry) == "table" and entry.isItem then
+                    isItem = true
+                end
+                if isItem then
+                    QueueItem(spellID)
+                end
+            end
+        end
+    end
 end
 
 function IcicleTooltip.BuildSpellTooltipText(spellID, spellName, iconTex, cooldownSeconds, isItem)

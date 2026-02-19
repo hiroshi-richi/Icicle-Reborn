@@ -4,15 +4,15 @@ IcicleCooldownRules = IcicleCooldownRules or {}
 
 local SHARED_COOLDOWNS = {
     -- PvP trinkets/racials
-    [51378] = {
+    [42122] = {
         [7744] = { sharedDuration = 45 },   -- Will of the Forsaken
         [59752] = { sharedDuration = 120 }, -- Every Man for Himself
     },
     [59752] = {
-        [51378] = { sharedDuration = 120 },
+        [42122] = { sharedDuration = 120 },
     },
     [7744] = {
-        [51378] = { sharedDuration = 45 },
+        [42122] = { sharedDuration = 45 },
     },
 
     -- Druid
@@ -110,16 +110,14 @@ local RESET_COOLDOWNS = {
 
 local ID_ALIASES = {
     -- PvP trinket canonicalization (Alliance/Horde item IDs).
-    [18853] = 51378, -- Medallion of the Alliance (vanilla version)
-    [18863] = 51378, -- Medallion of the Horde (vanilla version)
-    [37864] = 51378, -- Medallion of the Alliance (tbc version)
-    [37865] = 51378, -- Medallion of the Horde (tbc version)
-    [42122] = 51378, -- Medallion of the Alliance (wotlk version - phase 1)
-    [42123] = 51378, -- Medallion of the Horde (wotlk version - phase 1)
-    [42124] = 51378, -- Medallion of the Alliance (wotlk version - phase 2)
-    [42126] = 51378, -- Medallion of the Horde (wotlk version - phase 2)
-    [51377] = 51378, -- Medallion of the Alliance (wotlk version - phase 4)
-    [51378] = 51378, -- Medallion of the Horde (wotlk version - phase 4)
+    [37864] = 42122, -- Medallion of the Alliance (tbc version)
+    [37865] = 42122, -- Medallion of the Horde (tbc version)
+    [42122] = 42122, -- Medallion of the Alliance (wotlk version - phase 1)
+    [42123] = 42122, -- Medallion of the Horde (wotlk version - phase 1)
+    [42124] = 42122, -- Medallion of the Alliance (wotlk version - phase 2)
+    [42126] = 42122, -- Medallion of the Horde (wotlk version - phase 2)
+    [51377] = 42122, -- Medallion of the Alliance (wotlk version - phase 4)
+    [51378] = 42122, -- Medallion of the Horde (wotlk version - phase 4)
 
     -- Spell ranks / equivalent IDs used by Icicle custom list
     [6554] = 6552, -- Pummel rank alias

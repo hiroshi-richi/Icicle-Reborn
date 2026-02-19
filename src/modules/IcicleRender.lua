@@ -69,16 +69,16 @@ end
 
 local CATEGORY_BORDER_DEFAULT_COLORS = {
     GENERAL = { r = 0.62, g = 0.62, b = 0.62, a = 1.00 },
-    WARRIOR = { r = 0.78, g = 0.61, b = 0.43, a = 1.00 },
-    PALADIN = { r = 0.96, g = 0.55, b = 0.73, a = 1.00 },
-    HUNTER = { r = 0.67, g = 0.83, b = 0.45, a = 1.00 },
-    ROGUE = { r = 1.00, g = 0.96, b = 0.41, a = 1.00 },
+    WARRIOR = { r = 0.780, g = 0.612, b = 0.431, a = 1.00 },
+    PALADIN = { r = 0.961, g = 0.549, b = 0.729, a = 1.00 },
+    HUNTER = { r = 0.671, g = 0.831, b = 0.451, a = 1.00 },
+    ROGUE = { r = 1.000, g = 0.961, b = 0.412, a = 1.00 },
     PRIEST = { r = 1.00, g = 1.00, b = 1.00, a = 1.00 },
-    DEATH_KNIGHT = { r = 0.77, g = 0.12, b = 0.23, a = 1.00 },
-    SHAMAN = { r = 0.00, g = 0.44, b = 0.87, a = 1.00 },
-    MAGE = { r = 0.41, g = 0.80, b = 0.94, a = 1.00 },
-    WARLOCK = { r = 0.58, g = 0.51, b = 0.79, a = 1.00 },
-    DRUID = { r = 1.00, g = 0.49, b = 0.04, a = 1.00 },
+    DEATH_KNIGHT = { r = 0.769, g = 0.122, b = 0.231, a = 1.00 },
+    SHAMAN = { r = 0.000, g = 0.439, b = 0.871, a = 1.00 },
+    MAGE = { r = 0.247, g = 0.780, b = 0.922, a = 1.00 },
+    WARLOCK = { r = 0.529, g = 0.533, b = 0.933, a = 1.00 },
+    DRUID = { r = 1.000, g = 0.490, b = 0.039, a = 1.00 },
 }
 
 local function ApplyPriorityBorder(ctx, icon, rec, now)
@@ -109,6 +109,7 @@ local function ApplyPriorityBorder(ctx, icon, rec, now)
 
     local c = nil
     local pulseEnabled = false
+    local bordersEnabled = ctx.db.showBorders ~= false
     if ctx.SpellCategory and rec.spellID then
         local category = ctx.SpellCategory(rec.spellID)
         if category then
@@ -116,7 +117,7 @@ local function ApplyPriorityBorder(ctx, icon, rec, now)
             local categoryColor = colorsMap[category] or CATEGORY_BORDER_DEFAULT_COLORS[category]
             if ctx.db.highlightInterrupts and rec.isInterrupt then
                 c = categoryColor
-            else
+            elseif bordersEnabled then
                 local enabledMap = ctx.db.categoryBorderEnabled or {}
                 local enabled = enabledMap[category]
                 if enabled == nil then enabled = true end
@@ -169,11 +170,17 @@ function IcicleRender.CollectDisplayRecords(ctx, meta)
     local out = meta._renderRecords or {}
     WipeArray(out)
     meta._renderRecords = out
+    local now = GetTime()
 
     if ctx.STATE.testModeActive and ctx.STATE.testByPlate[meta.plate] then
         local testRecords = ctx.STATE.testByPlate[meta.plate]
+        local outIndex = 0
         for i = 1, #testRecords do
-            out[i] = testRecords[i]
+            local rec = testRecords[i]
+            if rec and rec.expiresAt and rec.expiresAt > now then
+                outIndex = outIndex + 1
+                out[outIndex] = rec
+            end
         end
         return out
     end
@@ -183,7 +190,6 @@ function IcicleRender.CollectDisplayRecords(ctx, meta)
         return out
     end
 
-    local now = GetTime()
     local guidEntry = ctx.STATE.guidByPlate[meta.plate]
 
     if guidEntry then
@@ -326,6 +332,14 @@ function IcicleRender.OnUpdate(ctx, elapsed)
         ctx.ResolveGroupTargets()
     end
 
+    if ctx.STATE.testModeActive and ctx.STATE.testAccum >= (tonumber(ctx.db.testRefreshInterval) or 10.0) then
+        ctx.STATE.testAccum = 0
+        if ctx.PopulateRandomPlateTests then
+            ctx.PopulateRandomPlateTests()
+            IcicleRender.RefreshAllVisiblePlates(ctx)
+        end
+    end
+
     if ctx.STATE.iconAccum >= ctx.db.iconUpdateInterval then
         ctx.STATE.iconAccum = 0
         local now = GetTime()
@@ -335,6 +349,9 @@ function IcicleRender.OnUpdate(ctx, elapsed)
         changed = ctx.PruneExpiredStore(ctx.STATE.cooldownsByName, now) or changed
 
         if changed then
+            IcicleRender.RefreshAllVisiblePlates(ctx)
+        elseif ctx.STATE.testModeActive then
+            -- Test records are filtered during render; force re-render so expired test icons disappear on time.
             IcicleRender.RefreshAllVisiblePlates(ctx)
         else
             for _, plates in pairs(ctx.STATE.visiblePlatesByName) do

@@ -54,9 +54,19 @@ local function BuildRecord(ctx, spellID, duration, spellNameOverride, meta, now,
     if not ShouldTrackDuration(ctx, duration) then
         return nil
     end
+    local isItem = false
+    if ctx and ctx.IsItemSpell then
+        isItem = ctx.IsItemSpell(spellID) and true or false
+    end
+
     local info = spellInfoCache and spellInfoCache[spellID]
     if not info then
-        local spellName, _, texture = GetSpellInfo(spellID)
+        local spellName, texture
+        if ctx and ctx.GetSpellOrItemInfo then
+            spellName, texture = ctx.GetSpellOrItemInfo(spellID, isItem)
+        else
+            spellName, _, texture = GetSpellInfo(spellID)
+        end
         info = {
             name = spellName,
             texture = texture,
@@ -67,10 +77,6 @@ local function BuildRecord(ctx, spellID, duration, spellNameOverride, meta, now,
     end
     local texture = info.texture or "Interface\\Icons\\INV_Misc_QuestionMark"
     now = now or GetTime()
-    local isItem = false
-    if ctx and ctx.IsItemSpell then
-        isItem = ctx.IsItemSpell(spellID) and true or false
-    end
     return {
         spellID = spellID,
         spellName = spellNameOverride or info.name or ("Spell " .. tostring(spellID)),

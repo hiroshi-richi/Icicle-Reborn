@@ -32,6 +32,8 @@ function IcicleState.BuildInitialState()
         inspectQueuedByGUID = {},
         inspectCurrent = nil,
         inspectOutOfRangeSince = {},
+        inspectOutOfRangeUnits = {},
+        feignDeathAuraByGUID = {},
 
         scanAccum = 0,
         iconAccum = 0,
