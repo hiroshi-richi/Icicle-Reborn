@@ -244,7 +244,7 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
         sourceRule = ctx.GetSpellConfig(spellID, sourceGUID, sourceName)
     end
     local now = GetTime()
-    local sourceKey = sourceGUID
+    local sourceKey = sourceGUID or sourceName
     if not sourceKey then
         return
     end
@@ -291,8 +291,23 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
         hasChanges = true
     end
 
-    if sourceGUID and sourceName and ctx.TryBindByName then
-        ctx.TryBindByName(sourceGUID, sourceName, 0.9, "combatlog", spellName, now)
+    local bound = false
+    if sourceGUID and sourceName then
+        bound = ctx.TryBindByName and ctx.TryBindByName(sourceGUID, sourceName, 0.9, "combatlog", spellName, now) or false
+        if bound then
+            if ctx.MigrateNameCooldownsToGUID then
+                ctx.MigrateNameCooldownsToGUID(sourceName, sourceGUID)
+            end
+        elseif ctx.RegisterPendingBind then
+            ctx.RegisterPendingBind(sourceGUID, sourceName, spellName, now)
+        end
+    end
+
+    if sourceName and (not sourceGUID or not bound) then
+        for i = 1, #records do
+            UpsertRecord(ctx, ctx.STATE.cooldownsByName, sourceName, records[i], "name")
+        end
+        hasChanges = true
     end
 
     local resetSpells = sourceRule and sourceRule.resetSpells or nil
@@ -301,11 +316,15 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
             local changed = ApplyResets(ctx.STATE.cooldownsByGUID, sourceGUID, resetSpells)
             hasChanges = changed or hasChanges
         end
+        if sourceName then
+            local changed = ApplyResets(ctx.STATE.cooldownsByName, sourceName, resetSpells)
+            hasChanges = changed or hasChanges
+        end
     end
 
     if hasChanges then
         if ctx.MarkDirtyBySource then
-            ctx.MarkDirtyBySource(sourceGUID, nil)
+            ctx.MarkDirtyBySource(sourceGUID, sourceName)
         end
         if ctx.RefreshDirtyPlates then
             ctx.RefreshDirtyPlates()

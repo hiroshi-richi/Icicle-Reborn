@@ -3,7 +3,7 @@
 ## Notes: Tracks enemy cooldown usage and shows active cooldown on nameplates.
 ## SavedVariables: Icicledb
 ## Author: Hiroshi Richi
-## Version: 3.0.0
+## Version: 1.0.0
 
 Icicle.xml
 src\config\settings.lua

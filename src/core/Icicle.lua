@@ -1006,6 +1006,22 @@ local function RefreshAllVisiblePlates()
     return RenderModule.RefreshAllVisiblePlates(RENDER_CONTEXT)
 end
 
+local function SuppressAllPlateVisuals()
+    for plate, meta in pairs(STATE.plateMeta) do
+        if meta then
+            if meta.container then
+                meta.container:Hide()
+            end
+            ReleaseIcons(meta)
+        end
+        STATE.dirtyPlates[plate] = nil
+    end
+    for i = #STATE.dirtyPlateList, 1, -1 do
+        STATE.dirtyPlateList[i] = nil
+    end
+    STATE.dirtyPlateCount = 0
+end
+
 local RegisterPlate
 
 local function OnPlateHide(self)
@@ -1368,6 +1384,21 @@ BuildOptionsPanel = function()
 end
 
 local function OnUpdate(_, elapsed)
+    local zoneEnabled = IsEnabledInCurrentZone()
+    local testActive = STATE.testModeActive and true or false
+    if (not zoneEnabled) and (not testActive) then
+        if not STATE.zoneSuppressed then
+            STATE.zoneSuppressed = true
+            SuppressAllPlateVisuals()
+        end
+        return
+    end
+    if STATE.zoneSuppressed then
+        STATE.zoneSuppressed = false
+        ScanNameplates()
+        RefreshAllVisiblePlates()
+    end
+
     if db and db.specDetectEnabled then
         SyncSpecContext()
         STATE.specAccum = (STATE.specAccum or 0) + elapsed
@@ -1386,12 +1417,15 @@ local function OnUpdate(_, elapsed)
     end
     SyncRenderContext()
     RENDER_CONTEXT.ScanNameplates = ScanNameplates
-    RENDER_CONTEXT.ResolveGroupTargets = nil
+    RENDER_CONTEXT.ResolveGroupTargets = ResolveGroupTargets
     RENDER_CONTEXT.PopulateRandomPlateTests = PopulateRandomPlateTests
     return RenderModule.OnUpdate(RENDER_CONTEXT, elapsed)
 end
 
 local function HandleUnitSignal(unit, confidence, reason)
+    if not IsEnabledInCurrentZone() then
+        return
+    end
     ResolveUnit(unit, confidence, reason)
     RefreshAllVisiblePlates()
 end

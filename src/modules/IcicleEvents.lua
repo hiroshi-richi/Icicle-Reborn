@@ -124,11 +124,19 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
         local unitID = ...
         if unitID == "target" or unitID == "focus" or unitID == "mouseover" then
             ctx.HandleUnitSignal(unitID, 0.9, "unit-target")
+        else
+            local targetUnit = unitID .. "target"
+            if UnitExists(targetUnit) then
+                ctx.ResolveUnit(targetUnit, 0.8, "group-target")
+            end
         end
         return
     end
 
     if event == "UNIT_AURA" then
+        if not ctx.IsEnabledInCurrentZone() then
+            return
+        end
         local db = ctx.dbRef and ctx.dbRef.value or nil
         if not (db and db.specDetectEnabled) then
             return
@@ -167,6 +175,9 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
     end
 
     if event == "ARENA_OPPONENT_UPDATE" then
+        if not ctx.IsEnabledInCurrentZone() then
+            return
+        end
         local db = ctx.dbRef and ctx.dbRef.value or nil
         if not (db and db.specDetectEnabled) then
             return
@@ -187,6 +198,9 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
     end
 
     if event == "INSPECT_TALENT_READY" then
+        if not ctx.IsEnabledInCurrentZone() then
+            return
+        end
         local db = ctx.dbRef and ctx.dbRef.value or nil
         if not (db and db.specDetectEnabled) then
             return

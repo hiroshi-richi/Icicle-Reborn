@@ -146,9 +146,9 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
             showTooltips = { type = "toggle", order = 3.1, name = "Show tooltips", desc = "Shows tooltip details when hovering nameplate icons." },
             showInterruptWhenCapped = { type = "toggle", order = 3.2, name = L("general.show_interrupt_when_capped", "Prioritize interrupt cooldowns when capped"), desc = "When icon cap is reached, prefer showing interrupt cooldowns first." },
             highlightInterrupts = { type = "toggle", order = 3.3, name = L("style.highlight_interrupts", "Highlight interrupts"), desc = "Do border pulses of interrupt cooldowns." },
-            classCategoryFilterEnabled = { type = "toggle", order = 3.4, name = L("general.class_filter", "Filter by spell class/category"), desc = "Prevents class-category spells (Warrior, Druid, etc.) from being assigned to units with a conflicting detected class." },
-            showOutOfRangeInspectMessages = { type = "toggle", order = 3.5, name = L("general.show_out_of_range_inspect", "Show out-of-range inspect warnings"), desc = "Prints a message when inspect-based spec detection cannot complete due to range." },
-            specDetectEnabled = { type = "toggle", order = 3.6, name = "Enable Advanced Spec Detection", desc = "Uses aura/inspect-based enemy spec detection for modifier-aware cooldowns. Higher CPU cost." },
+            specDetectEnabled = { type = "toggle", order = 3.4, name = "Enable Advanced Spec Detection", desc = "Uses aura/inspect enemy spec detection for modifier-aware cooldowns. Higher CPU cost." },
+            classCategoryFilterEnabled = { type = "toggle", order = 3.5, name = L("general.class_filter", "Filter by spell class/category"), desc = "Prevents class-category spells (Warrior, Druid, etc.) from being assigned to units with a conflicting detected class." },
+            showOutOfRangeInspectMessages = { type = "toggle", order = 3.6, name = L("general.show_out_of_range_inspect", "Show out-of-range inspect warnings"), desc = "Prints a message when inspect-based spec detection cannot complete due to range." },
             showAmbiguousByName = { type = "toggle", order = 3.7, name = "Show ambiguous icon", desc = "Show '?' icon for ambiguity unit (target/focus/mouseover the unit to detect cooldowns)" },
             testMode = {
                 type = "toggle",

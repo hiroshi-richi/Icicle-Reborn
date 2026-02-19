@@ -219,6 +219,23 @@ function IcicleRender.CollectDisplayRecords(ctx, meta)
         end
     end
 
+    if meta.name then
+        local byName = ctx.STATE.cooldownsByName[meta.name]
+        if byName then
+            local visible = ctx.STATE.visiblePlatesByName[meta.name]
+            local visibleCount = visible and visible.count or 0
+            if visibleCount == 1 or ctx.db.showAmbiguousByName then
+                local list, count = ctx.GetRecordList(byName, now)
+                for i = 1, count do
+                    local rec = list[i]
+                    rec.__ambiguous = (visibleCount > 1)
+                    outIndex = outIndex + 1
+                    out[outIndex] = rec
+                end
+            end
+        end
+    end
+
     return out
 end
 
@@ -390,6 +407,7 @@ function IcicleRender.OnUpdate(ctx, elapsed)
             changed = ctx.ProcessExpiryQueue(now) or changed
         else
             changed = ctx.PruneExpiredStore(ctx.STATE.cooldownsByGUID, now) or changed
+            changed = ctx.PruneExpiredStore(ctx.STATE.cooldownsByName, now) or changed
         end
 
         if changed then

@@ -22,15 +22,36 @@ local function PetOwnerNameFromSource(sourceName)
 end
 
 local function PetOwnerNameFromGUID(sourceGUID)
-    -- Performance mode: avoid tooltip scanning in combat path.
-    -- Keep only cache lookup if already known.
     if not sourceGUID then return nil end
     local now = GetTime()
     local cached = petOwnerByGUID[sourceGUID]
     if cached and (now - (cached.seenAt or 0)) <= petOwnerCacheTTL then
         return cached.name
     end
-    return nil
+
+    petTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+    local ok = pcall(petTooltip.SetHyperlink, petTooltip, "unit:" .. tostring(sourceGUID))
+    if not ok then
+        return nil
+    end
+
+    local ownerName = nil
+    for i = 2, petTooltip:NumLines() do
+        local line = _G["IciclePetOwnerTooltipTextLeft" .. i]
+        local text = line and line:GetText()
+        if text and text ~= "" then
+            local owner = strmatch(text, "<([^>]+)>")
+            if owner and owner ~= "" then
+                ownerName = ShortName(owner)
+                break
+            end
+        end
+    end
+    petTooltip:Hide()
+    if ownerName then
+        petOwnerByGUID[sourceGUID] = { name = ownerName, seenAt = now }
+    end
+    return ownerName
 end
 
 function IcicleCombat.IsHostileEnemyCaster(flags)
