@@ -102,7 +102,7 @@ IcicleData.DEFAULT_SPELLS_BY_CATEGORY = {
         [3045] = { cd = 300, enabledDefault = false, types = { class = true } }, -- Rapid Fire
         [5384] = { cd = 25, enabledDefault = false, types = { class = true } }, -- Feign Death
         [13809] = { cd = 28, enabledDefault = true, types = { class = true } }, -- Frost Trap
-        [14311] = { cd = 28, enabledDefault = true, types = { class = true } }, -- Freezing Trap
+        [14311] = { cd = 28, enabledDefault = false, types = { class = true } }, -- Freezing Trap
         [19263] = { cd = 90, enabledDefault = true, types = { class = true } }, -- Deterrence
         [19503] = { cd = 30, enabledDefault = true, types = { class = true } }, -- Scatter Shot
         [19574] = { cd = 120, enabledDefault = false, types = { class = true } }, -- Bestial Wrath
@@ -118,7 +118,7 @@ IcicleData.DEFAULT_SPELLS_BY_CATEGORY = {
         [53271] = { cd = 60, enabledDefault = true, types = { class = true } }, -- Master's Call
         [53476] = { cd = 30, enabledDefault = false, types = { class = true } }, -- Intervene
         [53480] = { cd = 60, enabledDefault = true, types = { class = true } }, -- Roar of Sacrifice
-        [60192] = { cd = 28, enabledDefault = true, types = { class = true } }, -- Freezing Arrow
+        [60192] = { cd = 28, enabledDefault = false, types = { class = true } }, -- Freezing Arrow
         [63672] = { cd = 22, enabledDefault = false, types = { class = true } }, -- Black Arrow
     },
     ROGUE = {

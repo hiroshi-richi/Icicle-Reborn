@@ -121,7 +121,6 @@ local function RandomFromList(list)
 end
 
 local function RandomSpellEntry(ctx)
-    EnsurePools(ctx)
     return RandomFromList(ctx.STATE.testPool)
 end
 
@@ -155,7 +154,6 @@ end
 
 local function FillSmartRecords(ctx, records, now, totalCount)
     local used = {}
-    EnsurePools(ctx)
     local pools = ctx.STATE.testPoolByType or {}
 
     -- Ensure key visual scenarios are present whenever possible.
@@ -179,6 +177,7 @@ end
 function IcicleTestMode.PopulateRandomPlateTests(ctx)
     local now = GetTime()
     ctx.WipeTable(ctx.STATE.testByPlate)
+    EnsurePools(ctx)
 
     for plate in pairs(ctx.STATE.knownPlates) do
         if plate:IsShown() and plate:GetAlpha() > 0 then

@@ -72,6 +72,7 @@ RequireFunction("IcicleResolver", ResolverModule, "TryResolvePendingBinds")
 RequireFunction("IcicleResolver", ResolverModule, "ResolveUnit")
 RequireFunction("IcicleResolver", ResolverModule, "ResolveGroupTargets")
 RequireFunction("IcicleRender", RenderModule, "RefreshAllVisiblePlates")
+RequireFunction("IcicleRender", RenderModule, "RenderPlate")
 RequireFunction("IcicleRender", RenderModule, "OnUpdate")
 RequireFunction("IcicleConfig", ConfigModule, "CopyDefaults")
 RequireFunction("IcicleConfig", ConfigModule, "NormalizeProfile")
@@ -131,7 +132,187 @@ local function WipeTable(tbl)
     for k in pairs(tbl) do tbl[k] = nil end
 end
 
-local STATE = StateModule.BuildInitialState()
+local STATE
+local SyncRenderContext
+local RENDER_CONTEXT
+
+local function MarkPlateDirty(plate)
+    if not plate then
+        return
+    end
+    if STATE.dirtyPlates[plate] then
+        return
+    end
+    STATE.dirtyPlateCount = (STATE.dirtyPlateCount or 0) + 1
+    STATE.dirtyPlateList[STATE.dirtyPlateCount] = plate
+    STATE.dirtyPlates[plate] = true
+end
+
+local function MarkDirtyBySource(sourceGUID, sourceName)
+    if sourceGUID then
+        local bind = STATE.plateByGUID[sourceGUID]
+        if bind and bind.plate then
+            MarkPlateDirty(bind.plate)
+        end
+    end
+    if sourceName then
+        local visible = STATE.visiblePlatesByName[sourceName]
+        if visible and visible.map then
+            for plate in pairs(visible.map) do
+                MarkPlateDirty(plate)
+            end
+        end
+    end
+end
+
+local function RefreshDirtyPlates()
+    SyncRenderContext()
+    if (STATE.dirtyPlateCount or 0) <= 0 then
+        return
+    end
+    for i = 1, STATE.dirtyPlateCount do
+        local plate = STATE.dirtyPlateList[i]
+        if plate then
+            STATE.dirtyPlates[plate] = nil
+            local meta = STATE.plateMeta[plate]
+            if meta and plate:IsShown() and plate:GetAlpha() > 0 then
+                RenderModule.RenderPlate(RENDER_CONTEXT, meta)
+            end
+            STATE.dirtyPlateList[i] = nil
+        end
+    end
+    STATE.dirtyPlateCount = 0
+end
+
+local function HeapSwap(heap, a, b)
+    heap[a], heap[b] = heap[b], heap[a]
+end
+
+local function HeapLess(heap, a, b)
+    return (heap[a].expiresAt or 0) < (heap[b].expiresAt or 0)
+end
+
+local function HeapPush(node)
+    if not node then
+        return
+    end
+    local heap = STATE.expiryHeap
+    local n = (STATE.expiryCount or 0) + 1
+    STATE.expiryCount = n
+    heap[n] = node
+    while n > 1 do
+        local p = floor(n / 2)
+        if HeapLess(heap, p, n) then
+            break
+        end
+        HeapSwap(heap, p, n)
+        n = p
+    end
+end
+
+local function HeapPop()
+    local n = STATE.expiryCount or 0
+    if n <= 0 then
+        return nil
+    end
+    local heap = STATE.expiryHeap
+    local top = heap[1]
+    local last = heap[n]
+    heap[n] = nil
+    n = n - 1
+    STATE.expiryCount = n
+    if n > 0 then
+        heap[1] = last
+        local i = 1
+        while true do
+            local l = i * 2
+            local r = l + 1
+            if l > n then
+                break
+            end
+            local smallest = l
+            if r <= n and HeapLess(heap, r, l) then
+                smallest = r
+            end
+            if HeapLess(heap, i, smallest) then
+                break
+            end
+            HeapSwap(heap, i, smallest)
+            i = smallest
+        end
+    end
+    return top
+end
+
+local function HeapPeek()
+    if (STATE.expiryCount or 0) <= 0 then
+        return nil
+    end
+    return STATE.expiryHeap[1]
+end
+
+local function RegisterExpiryRecord(storeKind, unitKey, record)
+    if not storeKind or not unitKey or not record or not record.expiresAt then
+        return
+    end
+    STATE.expirySeq = (STATE.expirySeq or 0) + 1
+    record.__expiryToken = STATE.expirySeq
+    HeapPush({
+        storeKind = storeKind,
+        unitKey = unitKey,
+        spellID = record.spellID,
+        expiresAt = record.expiresAt,
+        token = record.__expiryToken,
+    })
+end
+
+local function ProcessExpiryQueue(now)
+    local changed = false
+    now = now or GetTime()
+    while true do
+        local top = HeapPeek()
+        if (not top) or (top.expiresAt > now) then
+            break
+        end
+        HeapPop()
+        local store = (top.storeKind == "guid") and STATE.cooldownsByGUID or STATE.cooldownsByName
+        local bySpell = store and store[top.unitKey]
+        if bySpell then
+            local rec = bySpell[top.spellID]
+            if rec and rec.__expiryToken == top.token and rec.expiresAt <= now then
+                bySpell[top.spellID] = nil
+                bySpell.__dirty = true
+                local hasSpells = false
+                for k in pairs(bySpell) do
+                    if type(k) == "number" then
+                        hasSpells = true
+                        break
+                    end
+                end
+                if not hasSpells then
+                    store[top.unitKey] = nil
+                end
+                changed = true
+                if top.storeKind == "guid" then
+                    local bind = STATE.plateByGUID[top.unitKey]
+                    if bind and bind.plate then
+                        MarkPlateDirty(bind.plate)
+                    end
+                else
+                    local visible = STATE.visiblePlatesByName[top.unitKey]
+                    if visible and visible.map then
+                        for plate in pairs(visible.map) do
+                            MarkPlateDirty(plate)
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return changed
+end
+
+STATE = StateModule.BuildInitialState()
 
 local VALID_POINTS = ConstantsModule.VALID_POINTS
 local VALID_GROW = ConstantsModule.VALID_GROW
@@ -155,14 +336,25 @@ local function NormalizeCategory(category)
 end
 
 local function SpellCategory(spellID)
+    local cached = STATE.spellCategoryCache and STATE.spellCategoryCache[spellID]
+    if cached then
+        return cached
+    end
+    local category
     if db and db.spellCategories and db.spellCategories[spellID] then
-        return NormalizeCategory(db.spellCategories[spellID])
+        category = NormalizeCategory(db.spellCategories[spellID])
+        STATE.spellCategoryCache[spellID] = category
+        return category
     end
     local base = DEFAULT_SPELL_DATA[spellID]
     if base and base.category then
-        return NormalizeCategory(base.category)
+        category = NormalizeCategory(base.category)
+        STATE.spellCategoryCache[spellID] = category
+        return category
     end
-    return "GENERAL"
+    category = "GENERAL"
+    STATE.spellCategoryCache[spellID] = category
+    return category
 end
 
 local function EnsureDefaultSpellProfile(profile)
@@ -551,6 +743,11 @@ local function ReleaseIcons(meta)
         icon:Hide()
         icon.record = nil
         icon.isOverflow = nil
+        icon._lastTexture = nil
+        icon._lastCooldownText = nil
+        icon._lastR, icon._lastG, icon._lastB = nil, nil, nil
+        icon._lastBorderR, icon._lastBorderG, icon._lastBorderB, icon._lastBorderA = nil, nil, nil, nil
+        icon._borderVisible = false
         icon.ambiguousMark:Hide()
         if icon.border then icon.border:Hide() end
         if icon.borderFrame then icon.borderFrame:Hide() end
@@ -562,10 +759,31 @@ end
 local function ApplyContainerAnchor(meta)
     local container = EnsureContainer(meta)
     local parent = meta.healthBar or meta.plate
-    container:SetFrameStrata(db.frameStrata)
-    container:SetFrameLevel((parent:GetFrameLevel() or meta.plate:GetFrameLevel() or 1) + 1)
-    container:ClearAllPoints()
-    container:SetPoint(db.anchorPoint, parent, db.anchorTo, db.xOffset, db.yOffset)
+    local frameLevel = (parent:GetFrameLevel() or meta.plate:GetFrameLevel() or 1) + 1
+    local needReanchor = false
+    if meta._anchorParent ~= parent then
+        needReanchor = true
+        meta._anchorParent = parent
+    end
+    if meta._anchorPoint ~= db.anchorPoint or meta._anchorTo ~= db.anchorTo or meta._anchorX ~= db.xOffset or meta._anchorY ~= db.yOffset then
+        needReanchor = true
+        meta._anchorPoint = db.anchorPoint
+        meta._anchorTo = db.anchorTo
+        meta._anchorX = db.xOffset
+        meta._anchorY = db.yOffset
+    end
+    if meta._anchorStrata ~= db.frameStrata then
+        container:SetFrameStrata(db.frameStrata)
+        meta._anchorStrata = db.frameStrata
+    end
+    if meta._anchorFrameLevel ~= frameLevel then
+        container:SetFrameLevel(frameLevel)
+        meta._anchorFrameLevel = frameLevel
+    end
+    if needReanchor then
+        container:ClearAllPoints()
+        container:SetPoint(db.anchorPoint, parent, db.anchorTo, db.xOffset, db.yOffset)
+    end
 end
 local function LayoutIcons(meta)
     local function SafeSetFont(fontString, fontPath, size, flags)
@@ -578,8 +796,29 @@ local function LayoutIcons(meta)
     local size = db.iconSize
     local spacing = db.iconSpacing
     local maxPerRow = max(1, db.maxIconsPerRow)
+    local iconCount = #meta.activeIcons
+    if meta._layoutSize == size and
+        meta._layoutSpacing == spacing and
+        meta._layoutMaxPerRow == maxPerRow and
+        meta._layoutGrowth == db.growthDirection and
+        meta._layoutCount == iconCount and
+        meta._layoutFont == db.textfont and
+        meta._layoutFontSize == db.fontSize and
+        meta._layoutBorderSize == db.priorityBorderSize and
+        meta._layoutBorderInset == db.priorityBorderInset then
+        return
+    end
+    meta._layoutSize = size
+    meta._layoutSpacing = spacing
+    meta._layoutMaxPerRow = maxPerRow
+    meta._layoutGrowth = db.growthDirection
+    meta._layoutCount = iconCount
+    meta._layoutFont = db.textfont
+    meta._layoutFontSize = db.fontSize
+    meta._layoutBorderSize = db.priorityBorderSize
+    meta._layoutBorderInset = db.priorityBorderInset
 
-    for i = 1, #meta.activeIcons do
+    for i = 1, iconCount do
         local icon = meta.activeIcons[i]
         local row = floor((i - 1) / maxPerRow)
         local col = (i - 1) % maxPerRow
@@ -608,17 +847,66 @@ end
 local function PruneExpiredStore(tbl, now)
     local changed = false
     for k, spellMap in pairs(tbl) do
+        local unitChanged = false
         for spellID, rec in pairs(spellMap) do
-            if rec.expiresAt <= now then
+            if type(spellID) == "number" and type(rec) == "table" and rec.expiresAt <= now then
                 spellMap[spellID] = nil
                 changed = true
+                unitChanged = true
             end
         end
-        if next(spellMap) == nil then
+        if unitChanged then
+            spellMap.__dirty = true
+        end
+        local hasSpells = false
+        for spellID in pairs(spellMap) do
+            if type(spellID) == "number" then
+                hasSpells = true
+                break
+            end
+        end
+        if not hasSpells then
             tbl[k] = nil
         end
     end
     return changed
+end
+
+local function GetRecordList(spellMap, now)
+    if type(spellMap) ~= "table" then
+        return nil, 0
+    end
+    local dirty = spellMap.__dirty
+    local currentNow = now or GetTime()
+    if (not dirty) and spellMap.__minExpiresAt and spellMap.__minExpiresAt <= currentNow then
+        dirty = true
+    end
+    local list = spellMap.__list
+    if type(list) ~= "table" then
+        list = {}
+        spellMap.__list = list
+        dirty = true
+    end
+    if dirty then
+        local count = 0
+        local minExpiresAt = nil
+        for spellID, rec in pairs(spellMap) do
+            if type(spellID) == "number" and type(rec) == "table" and rec.expiresAt and rec.expiresAt > currentNow then
+                count = count + 1
+                list[count] = rec
+                if not minExpiresAt or rec.expiresAt < minExpiresAt then
+                    minExpiresAt = rec.expiresAt
+                end
+            end
+        end
+        for i = #list, count + 1, -1 do
+            list[i] = nil
+        end
+        spellMap.__listCount = count
+        spellMap.__minExpiresAt = minExpiresAt
+        spellMap.__dirty = false
+    end
+    return list, tonumber(spellMap.__listCount) or 0
 end
 
 local function DecayedConfidence(entry, now)
@@ -632,6 +920,7 @@ local RESOLVER_CONTEXT = {
     DecayedConfidence = DecayedConfidence,
     ShortName = ShortName,
     ClassTokenToCategory = ClassTokenToCategory,
+    RegisterExpiryRecord = RegisterExpiryRecord,
 }
 
 local function SyncResolverContext()
@@ -668,7 +957,7 @@ local function TryResolvePendingBinds()
     return ResolverModule.TryResolvePendingBinds(RESOLVER_CONTEXT)
 end
 
-local RENDER_CONTEXT = {
+RENDER_CONTEXT = {
     STATE = STATE,
     db = nil,
     DecayedConfidence = DecayedConfidence,
@@ -679,13 +968,17 @@ local RENDER_CONTEXT = {
     FormatRemaining = FormatRemaining,
     LayoutIcons = LayoutIcons,
     PruneExpiredStore = PruneExpiredStore,
+    GetRecordList = GetRecordList,
+    ProcessExpiryQueue = ProcessExpiryQueue,
     ScanNameplates = nil,
+    GetWorldChildrenCount = function() return WorldFrame:GetNumChildren() end,
     ResolveGroupTargets = nil,
     PopulateRandomPlateTests = nil,
     SpellCategory = SpellCategory,
+    RefreshDirtyPlates = RefreshDirtyPlates,
 }
 
-local function SyncRenderContext()
+SyncRenderContext = function()
     RENDER_CONTEXT.db = db
 end
 
@@ -693,6 +986,8 @@ local function RefreshAllVisiblePlates()
     SyncRenderContext()
     return RenderModule.RefreshAllVisiblePlates(RENDER_CONTEXT)
 end
+
+local RegisterPlate
 
 local function OnPlateHide(self)
     local meta = STATE.plateMeta[self]
@@ -702,7 +997,14 @@ local function OnPlateHide(self)
     ReleaseIcons(meta)
 end
 
-local function RegisterPlate(frame)
+local function OnPlateShow(self)
+    if not STATE.plateMeta[self] then
+        RegisterPlate(self)
+    end
+    MarkPlateDirty(self)
+end
+
+RegisterPlate = function(frame)
     if STATE.knownPlates[frame] then return end
 
     local healthBar, castBar = NameplatesModule.FindBars(frame)
@@ -726,6 +1028,7 @@ local function RegisterPlate(frame)
 
     if not frame.IcicleHooked then
         frame:HookScript("OnHide", OnPlateHide)
+        frame:HookScript("OnShow", OnPlateShow)
         frame.IcicleHooked = true
     end
 end
@@ -775,10 +1078,15 @@ local TRACKING_CONTEXT = {
     RegisterPendingBind = RegisterPendingBind,
     MigrateNameCooldownsToGUID = MigrateNameCooldownsToGUID,
     RefreshAllVisiblePlates = RefreshAllVisiblePlates,
+    RefreshDirtyPlates = RefreshDirtyPlates,
+    MarkDirtyBySource = MarkDirtyBySource,
+    RegisterExpiryRecord = RegisterExpiryRecord,
     IsItemSpell = IsItemSpell,
     GetSpellOrItemInfo = GetSpellOrItemInfo,
     SpellCategory = SpellCategory,
     GetSourceClassCategory = GetSourceClassCategory,
+    scratchRecords = STATE.scratchRecords,
+    scratchSpellInfo = STATE.scratchSpellInfo,
 }
 
 local function StartCooldown(sourceGUID, sourceName, spellID, spellName, eventType)
@@ -789,6 +1097,9 @@ local function ResetAllCooldowns(silent)
     WipeTable(STATE.cooldownsByGUID)
     WipeTable(STATE.cooldownsByName)
     WipeTable(STATE.recentEventByUnit)
+    WipeTable(STATE.expiryHeap)
+    STATE.expiryCount = 0
+    STATE.expirySeq = 0
     RefreshAllVisiblePlates()
     if not silent then
         Print("all cooldown timers reset")
@@ -935,6 +1246,7 @@ end
 
 NotifySpellsChanged = function()
     SPELL_IDS_BY_NAME = nil
+    WipeTable(STATE.spellCategoryCache)
     PrimeEnabledItemDisplayInfo()
     if STATE.rebuildSpellArgs then
         STATE.rebuildSpellArgs()
@@ -988,6 +1300,7 @@ end
 local function ProfilesChanged()
     db = aceDB.profile
     SPELL_IDS_BY_NAME = nil
+    WipeTable(STATE.spellCategoryCache)
     ConfigModule.NormalizeProfile(db, BASE_COOLDOWNS)
     EnsureDefaultSpellProfile(db)
     PrimeEnabledItemDisplayInfo()

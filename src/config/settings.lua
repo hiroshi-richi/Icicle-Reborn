@@ -5,9 +5,9 @@ IcicleDefaults = {
     all = false,
     arena = true,
     battleground = true,
-    field = true,
-    party = true,
-    raid = true,
+    field = false,
+    party = false,
+    raid = false,
 
     anchorPoint = "BOTTOMLEFT",
     anchorTo = "BOTTOMLEFT",
@@ -21,8 +21,8 @@ IcicleDefaults = {
     growthDirection = "RIGHT",
     frameStrata = "LOW",
 
-    showTooltips = true,
-    showAmbiguousByName = false,
+    showTooltips = false,
+    showAmbiguousByName = true,
     showInterruptWhenCapped = true,
     classCategoryFilterEnabled = true,
     showOutOfRangeInspectMessages = true,
@@ -47,7 +47,7 @@ IcicleDefaults = {
     defaultEnabledPresetVersion = 0,
 
     highlightInterrupts = true,
-    showBorders = true,
+    showBorders = false,
     priorityBorderSize = 1,
     priorityBorderInset = 0,
     priorityBorderPulseIntensity = 1,

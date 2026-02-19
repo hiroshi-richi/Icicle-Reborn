@@ -90,11 +90,19 @@ local function BuildRecord(ctx, spellID, duration, spellNameOverride, meta, now,
     }
 end
 
-local function UpsertRecord(mapByUnit, unitKey, record)
-    mapByUnit[unitKey] = mapByUnit[unitKey] or {}
-    local current = mapByUnit[unitKey][record.spellID]
+local function UpsertRecord(ctx, mapByUnit, unitKey, record, storeKind)
+    local bySpell = mapByUnit[unitKey]
+    if not bySpell then
+        bySpell = { __dirty = true, __list = {}, __listCount = 0 }
+        mapByUnit[unitKey] = bySpell
+    end
+    local current = bySpell[record.spellID]
     if (not current) or current.expiresAt < record.expiresAt then
-        mapByUnit[unitKey][record.spellID] = record
+        bySpell[record.spellID] = record
+        bySpell.__dirty = true
+        if ctx and ctx.RegisterExpiryRecord then
+            ctx.RegisterExpiryRecord(storeKind, unitKey, record)
+        end
     end
 end
 
@@ -111,15 +119,28 @@ local function ApplyResets(stateStore, unitKey, resetSpells)
             changed = true
         end
     end
+    if changed then
+        bySpell.__dirty = true
+    end
 
-    if next(bySpell) == nil then
+    local hasSpells = false
+    for k in pairs(bySpell) do
+        if type(k) == "number" then
+            hasSpells = true
+            break
+        end
+    end
+    if not hasSpells then
         stateStore[unitKey] = nil
     end
     return changed
 end
 
-local function BuildTriggeredRecords(ctx, sourceSpellID, sourceSpellName, sourceRule, now, spellInfoCache)
-    local list = {}
+local function BuildTriggeredRecords(ctx, sourceSpellID, sourceSpellName, sourceRule, now, spellInfoCache, outList)
+    local list = outList or {}
+    for i = #list, 1, -1 do
+        list[i] = nil
+    end
 
     local sourceRecord = BuildRecord(ctx, sourceRule.spellID or sourceSpellID, sourceRule.cd, sourceSpellName, { isShared = false }, now, spellInfoCache)
     if sourceRecord then
@@ -153,8 +174,11 @@ local function BuildTriggeredRecords(ctx, sourceSpellID, sourceSpellName, source
     return list
 end
 
-local function BuildSharedOnlyRecords(ctx, sourceGUID, sourceName, sourceSpellID, sharedTargets, now, spellInfoCache)
-    local list = {}
+local function BuildSharedOnlyRecords(ctx, sourceGUID, sourceName, sourceSpellID, sharedTargets, now, spellInfoCache, outList)
+    local list = outList or {}
+    for i = #list, 1, -1 do
+        list[i] = nil
+    end
     if not sharedTargets then
         return list
     end
@@ -231,7 +255,11 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
 
     local records
     local isSharedOnly = false
-    local spellInfoCache = {}
+    local spellInfoCache = (ctx and ctx.scratchSpellInfo) or {}
+    for k in pairs(spellInfoCache) do
+        spellInfoCache[k] = nil
+    end
+    local recordsScratch = (ctx and ctx.scratchRecords) or {}
     local dedupeSpellID = sourceSpellID
     if EventDedupe(ctx.STATE, ctx.spellDedupeWindow, sourceKey, dedupeSpellID) then
         return
@@ -240,13 +268,13 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
     if sourceRule and ctx.EventMatchesTrigger(eventType, sourceRule.trigger) then
         sourceRule.sourceGUID = sourceGUID
         sourceRule.sourceName = sourceName
-        records = BuildTriggeredRecords(ctx, spellID, spellName, sourceRule, now, spellInfoCache)
+        records = BuildTriggeredRecords(ctx, spellID, spellName, sourceRule, now, spellInfoCache, recordsScratch)
     else
         local sharedTargets = ctx.GetSharedCooldownTargets and ctx.GetSharedCooldownTargets(spellID)
         if not sharedTargets or eventType ~= "SPELL_CAST_SUCCESS" then
             return
         end
-        records = BuildSharedOnlyRecords(ctx, sourceGUID, sourceName, spellID, sharedTargets, now, spellInfoCache)
+        records = BuildSharedOnlyRecords(ctx, sourceGUID, sourceName, spellID, sharedTargets, now, spellInfoCache, recordsScratch)
         isSharedOnly = true
     end
 
@@ -258,7 +286,7 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
 
     if sourceGUID then
         for i = 1, #records do
-            UpsertRecord(ctx.STATE.cooldownsByGUID, sourceGUID, records[i])
+            UpsertRecord(ctx, ctx.STATE.cooldownsByGUID, sourceGUID, records[i], "guid")
         end
         hasChanges = true
     end
@@ -275,7 +303,7 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
 
     if sourceName and (not sourceGUID or not bound) then
         for i = 1, #records do
-            UpsertRecord(ctx.STATE.cooldownsByName, sourceName, records[i])
+            UpsertRecord(ctx, ctx.STATE.cooldownsByName, sourceName, records[i], "name")
         end
         hasChanges = true
     end
@@ -293,7 +321,14 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
     end
 
     if hasChanges then
-        ctx.RefreshAllVisiblePlates()
+        if ctx.MarkDirtyBySource then
+            ctx.MarkDirtyBySource(sourceGUID, sourceName)
+        end
+        if ctx.RefreshDirtyPlates then
+            ctx.RefreshDirtyPlates()
+        else
+            ctx.RefreshAllVisiblePlates()
+        end
     end
 end
 

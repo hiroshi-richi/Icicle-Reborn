@@ -130,6 +130,7 @@ function IcicleConfig.NormalizeProfile(db, baseCooldowns)
     db.specHintTTL = math.max(30, math.min(3600, tonumber(db.specHintTTL) or 300))
     if db.party == nil then db.party = db.field ~= false end
     if db.raid == nil then db.raid = db.field ~= false end
+    if db.showAmbiguousByName == nil then db.showAmbiguousByName = true end
     if db.showInterruptWhenCapped == nil then db.showInterruptWhenCapped = true end
     if db.classCategoryFilterEnabled == nil then db.classCategoryFilterEnabled = true end
     if db.showOutOfRangeInspectMessages == nil then db.showOutOfRangeInspectMessages = true end
@@ -138,7 +139,7 @@ function IcicleConfig.NormalizeProfile(db, baseCooldowns)
     db.inspectRetryInterval = math.max(0.2, math.min(5, tonumber(db.inspectRetryInterval) or 1.0))
     db.inspectMaxRetryTime = math.max(5, math.min(120, tonumber(db.inspectMaxRetryTime) or 30.0))
     if db.highlightInterrupts == nil then db.highlightInterrupts = true end
-    if db.showBorders == nil then db.showBorders = true end
+    if db.showBorders == nil then db.showBorders = false end
     db.priorityBorderSize = math.max(1, math.min(6, tonumber(db.priorityBorderSize) or 1))
     db.priorityBorderInset = math.max(-2, math.min(4, tonumber(db.priorityBorderInset) or 0))
     db.priorityBorderPulseIntensity = math.max(0, math.min(1, tonumber(db.priorityBorderPulseIntensity) or 1))

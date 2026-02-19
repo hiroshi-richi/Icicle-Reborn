@@ -136,52 +136,87 @@ function IcicleNameplates.AddVisibleNamePlate(visiblePlatesByName, name, plate)
 end
 
 function IcicleNameplates.ScanNameplates(ctx)
-    local num = ctx.WorldFrame:GetNumChildren()
-
-    for i = 1, num do
-        local frame = select(i, ctx.WorldFrame:GetChildren())
-        if frame and not ctx.STATE.knownPlates[frame] and IcicleNameplates.IsLikelyNamePlate(frame) then
-            ctx.RegisterPlate(frame)
+    local now = ctx.GetTime()
+    local numChildren = ctx.WorldFrame:GetNumChildren()
+    local fullRescan = numChildren ~= (ctx.STATE.lastWorldChildrenCount or 0)
+    if fullRescan then
+        local children = { ctx.WorldFrame:GetChildren() }
+        for i = 1, #children do
+            local frame = children[i]
+            if frame and not ctx.STATE.knownPlates[frame] and IcicleNameplates.IsLikelyNamePlate(frame) then
+                ctx.RegisterPlate(frame)
+            end
         end
+        ctx.STATE.lastWorldChildrenCount = numChildren
     end
 
     ctx.WipeTable(ctx.STATE.visiblePlatesByName)
+    local visibleList = ctx.STATE.visiblePlateList or {}
+    ctx.STATE.visiblePlateList = visibleList
+    local previousVisible = nil
+    local previousVisibleSet = nil
+    if not fullRescan then
+        previousVisible = {}
+        previousVisibleSet = {}
+        for i = 1, #visibleList do
+            local plate = visibleList[i]
+            previousVisible[i] = plate
+            previousVisibleSet[plate] = true
+        end
+    end
+    for i = #visibleList, 1, -1 do
+        visibleList[i] = nil
+    end
+    ctx.STATE.visiblePlateCount = 0
     ctx.STATE.visibleCount = 0
 
-    for plate in pairs(ctx.STATE.knownPlates) do
+    local function ProcessPlate(plate)
         if plate:IsShown() and plate:GetAlpha() > 0 then
             local meta = ctx.STATE.plateMeta[plate]
             if meta then
                 meta.name = IcicleNameplates.PlateName(meta, ctx.ShortName)
                 if meta.name then
                     IcicleNameplates.AddVisibleNamePlate(ctx.STATE.visiblePlatesByName, meta.name, plate)
+                    ctx.STATE.visiblePlateCount = ctx.STATE.visiblePlateCount + 1
+                    visibleList[ctx.STATE.visiblePlateCount] = plate
                     ctx.STATE.visibleCount = ctx.STATE.visibleCount + 1
                 end
 
                 if meta.healthBar and meta.healthBar.GetStatusBarColor then
                     local r, g, b = meta.healthBar:GetStatusBarColor()
-                    local reaction = ReactionFromBarColor(r, g, b)
-                    ctx.STATE.reactionByPlate = ctx.STATE.reactionByPlate or {}
-                    ctx.STATE.reactionSourceByPlate = ctx.STATE.reactionSourceByPlate or {}
-                    if reaction then
-                        meta.reactionHint = reaction
-                        ctx.STATE.reactionByPlate[plate] = reaction
-                        ctx.STATE.reactionSourceByPlate[plate] = "color"
-                    else
-                        meta.reactionHint = nil
-                        ctx.STATE.reactionByPlate[plate] = nil
-                        ctx.STATE.reactionSourceByPlate[plate] = nil
+                    if meta._lastHealthR ~= r or meta._lastHealthG ~= g or meta._lastHealthB ~= b then
+                        meta._lastHealthR, meta._lastHealthG, meta._lastHealthB = r, g, b
+                        local reaction = ReactionFromBarColor(r, g, b)
+                        ctx.STATE.reactionByPlate = ctx.STATE.reactionByPlate or {}
+                        ctx.STATE.reactionSourceByPlate = ctx.STATE.reactionSourceByPlate or {}
+                        if reaction then
+                            meta.reactionHint = reaction
+                            ctx.STATE.reactionByPlate[plate] = reaction
+                            ctx.STATE.reactionSourceByPlate[plate] = "color"
+                        else
+                            meta.reactionHint = nil
+                            ctx.STATE.reactionByPlate[plate] = nil
+                            ctx.STATE.reactionSourceByPlate[plate] = nil
+                        end
                     end
                 end
 
                 if meta.castBar and meta.castBar:IsShown() then
-                    local castSpell = IcicleNameplates.GetCastSpellFromBar(meta.castBar)
-                    if castSpell and castSpell ~= "" then
-                        if castSpell ~= meta.lastCastSpell or (ctx.GetTime() - meta.lastCastAt) > ctx.db.castMatchWindow then
-                            meta.lastCastSpell = castSpell
-                            meta.lastCastAt = ctx.GetTime()
+                    if (not meta._lastCastProbeAt) or (now - meta._lastCastProbeAt) >= 0.08 then
+                        meta._lastCastProbeAt = now
+                        local castSpell = IcicleNameplates.GetCastSpellFromBar(meta.castBar)
+                        if castSpell and castSpell ~= "" then
+                            if castSpell ~= meta.lastCastSpell or (now - meta.lastCastAt) > ctx.db.castMatchWindow then
+                                meta.lastCastSpell = castSpell
+                                meta.lastCastAt = now
+                            end
                         end
                     end
+                else
+                    if meta.lastCastSpell and (now - meta.lastCastAt) > ctx.db.castMatchWindow then
+                        meta.lastCastSpell = nil
+                    end
+                    meta._lastCastProbeAt = now
                 end
 
                 if meta.container then meta.container:Show() end
@@ -196,6 +231,27 @@ function IcicleNameplates.ScanNameplates(ctx)
                 ctx.STATE.reactionSourceByPlate[plate] = nil
             end
             ctx.RemovePlateBinding(plate)
+        end
+    end
+
+    if fullRescan then
+        for plate in pairs(ctx.STATE.knownPlates) do
+            ProcessPlate(plate)
+        end
+    else
+        local prevCount = previousVisible and #previousVisible or 0
+        for i = 1, prevCount do
+            local plate = previousVisible[i]
+            if plate then
+                ProcessPlate(plate)
+            end
+        end
+        local dirtyCount = ctx.STATE.dirtyPlateCount or 0
+        for i = 1, dirtyCount do
+            local plate = ctx.STATE.dirtyPlateList and ctx.STATE.dirtyPlateList[i]
+            if plate and (not previousVisibleSet or not previousVisibleSet[plate]) then
+                ProcessPlate(plate)
+            end
         end
     end
 

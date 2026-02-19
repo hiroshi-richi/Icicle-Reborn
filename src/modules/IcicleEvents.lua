@@ -1,5 +1,8 @@
 IcicleEvents = IcicleEvents or {}
 
+local strmatch = string.match
+local bit_band = bit.band
+
 local ALLOWED_COMBATLOG_SUBEVENTS = {
     SPELL_CAST_SUCCESS = true,
     SPELL_AURA_APPLIED = true,
@@ -69,6 +72,8 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
         ctx.WipeTable(ctx.STATE.pendingBindByGUID)
         ctx.WipeTable(ctx.STATE.recentEventByUnit)
         ctx.WipeTable(ctx.STATE.recentUnitSucceededByUnit)
+        ctx.WipeTable(ctx.STATE.lastSpecAuraCheckByGUID)
+        ctx.WipeTable(ctx.STATE.spellCategoryCache)
         ctx.WipeTable(ctx.STATE.classByGUID)
         ctx.WipeTable(ctx.STATE.classByName)
         ctx.WipeTable(ctx.STATE.reactionByGUID)
@@ -84,6 +89,16 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
         ctx.WipeTable(ctx.STATE.inspectOutOfRangeSince)
         ctx.WipeTable(ctx.STATE.inspectOutOfRangeUnits)
         ctx.WipeTable(ctx.STATE.feignDeathAuraByGUID)
+        ctx.WipeTable(ctx.STATE.dirtyPlates)
+        ctx.WipeTable(ctx.STATE.dirtyPlateList)
+        ctx.STATE.dirtyPlateCount = 0
+        ctx.WipeTable(ctx.STATE.visiblePlateList)
+        ctx.WipeTable(ctx.STATE.visiblePlateIndexByRef)
+        ctx.STATE.visiblePlateCount = 0
+        ctx.WipeTable(ctx.STATE.expiryHeap)
+        ctx.STATE.expiryCount = 0
+        ctx.STATE.expirySeq = 0
+        ctx.STATE.lastWorldChildrenCount = 0
         ctx.STATE.inspectCurrent = nil
         ctx.ScanNameplates()
         ctx.RefreshAllVisiblePlates()
@@ -124,10 +139,24 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
         if ctx.HandleFeignDeathAura then
             ctx.HandleFeignDeathAura(unit)
         end
-        ctx.SyncSpecContext()
-        local changed = ctx.SpecModule.UpdateFromUnitAura(ctx.SPEC_CONTEXT, unit)
-        if changed then
-            ctx.RefreshAllVisiblePlates()
+        local guid = UnitGUID(unit)
+        local now = GetTime()
+        local canCheck = true
+        if guid then
+            local last = ctx.STATE.lastSpecAuraCheckByGUID and ctx.STATE.lastSpecAuraCheckByGUID[guid]
+            if last and (now - last) < 0.20 then
+                canCheck = false
+            else
+                ctx.STATE.lastSpecAuraCheckByGUID = ctx.STATE.lastSpecAuraCheckByGUID or {}
+                ctx.STATE.lastSpecAuraCheckByGUID[guid] = now
+            end
+        end
+        if canCheck then
+            ctx.SyncSpecContext()
+            local changed = ctx.SpecModule.UpdateFromUnitAura(ctx.SPEC_CONTEXT, unit)
+            if changed then
+                ctx.RefreshAllVisiblePlates()
+            end
         end
         return
     end
@@ -153,20 +182,41 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
             return
         end
 
-        local info = ctx.CombatModule.ParseCombatLog(...)
-        if not info.spellID or not info.sourceName then return end
-        if ctx.RecordCombatReaction and info.sourceReaction then
-            ctx.RecordCombatReaction(info.sourceGUID, info.sourceName, info.sourceReaction)
+        local arg3 = select(3, ...)
+        local sourceGUID, sourceName, sourceFlags, spellID, spellName
+        if type(arg3) == "boolean" then
+            sourceGUID, sourceName, sourceFlags = select(4, ...), select(5, ...), select(6, ...)
+            spellID, spellName = select(12, ...), select(13, ...)
+        else
+            sourceGUID, sourceName, sourceFlags = select(3, ...), select(4, ...), select(5, ...)
+            spellID, spellName = select(9, ...), select(10, ...)
         end
-        if not ctx.CombatModule.IsHostileEnemyCaster(info.sourceFlags) then return end
+        if not spellID or not sourceName then return end
+        if not ctx.CombatModule.IsHostileEnemyCaster(sourceFlags) then return end
+
+        local reaction = ctx.CombatModule.GetReactionFromFlags and ctx.CombatModule.GetReactionFromFlags(sourceFlags) or nil
+        local normalizedSourceName = ctx.ShortName(sourceName)
+        local normalizedSourceGUID = sourceGUID
+        if type(sourceFlags) == "number" and COMBATLOG_OBJECT_TYPE_PET and bit_band(sourceFlags, COMBATLOG_OBJECT_TYPE_PET) == COMBATLOG_OBJECT_TYPE_PET then
+            local owner = strmatch(sourceName or "", "<([^>]+)>")
+            if owner and owner ~= "" then
+                normalizedSourceName = ctx.ShortName(owner)
+                normalizedSourceGUID = nil
+            end
+        end
+        if not normalizedSourceName then return end
+
+        if ctx.RecordCombatReaction and reaction then
+            ctx.RecordCombatReaction(normalizedSourceGUID, normalizedSourceName, reaction)
+        end
 
         ctx.SyncSpecContext()
-        local specChanged = ctx.SpecModule.UpdateFromCombatEvent(ctx.SPEC_CONTEXT, info.spellID, info.sourceGUID, info.sourceName)
+        local specChanged = ctx.SpecModule.UpdateFromCombatEvent(ctx.SPEC_CONTEXT, spellID, normalizedSourceGUID, normalizedSourceName)
         if specChanged then
             ctx.RefreshAllVisiblePlates()
         end
 
-        ctx.StartCooldown(info.sourceGUID, info.sourceName, info.spellID, info.spellName, info.eventType)
+        ctx.StartCooldown(normalizedSourceGUID, normalizedSourceName, spellID, spellName, subEvent)
         return
     end
 

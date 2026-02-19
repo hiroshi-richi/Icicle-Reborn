@@ -3,6 +3,7 @@ IcicleRender = IcicleRender or {}
 local tinsert, tremove, tsort = table.insert, table.remove, table.sort
 local min, sin = math.min, math.sin
 local GetTime = GetTime
+local NAME_FALLBACK_RENDER_WINDOW = 2.5
 
 local function SortByExpire(a, b)
     return a.expiresAt < b.expiresAt
@@ -92,21 +93,6 @@ local function ApplyPriorityBorder(ctx, icon, rec, now)
         return
     end
 
-    local function HideBorder()
-        if hasSingleBorder and icon.border then
-            icon.border:Hide()
-        end
-        if hasFrameBorder and icon.borderFrame then
-            icon.borderFrame:Hide()
-        end
-        if hasEdgeBorder then
-            icon.borderEdges.top:Hide()
-            icon.borderEdges.bottom:Hide()
-            icon.borderEdges.left:Hide()
-            icon.borderEdges.right:Hide()
-        end
-    end
-
     local c = nil
     local pulseEnabled = false
     local bordersEnabled = ctx.db.showBorders ~= false
@@ -140,29 +126,52 @@ local function ApplyPriorityBorder(ctx, icon, rec, now)
             local floorA = 1 - pulse
             a = baseA * (floorA + (pulse * wave))
         end
-        if hasSingleBorder and icon.border then
-            icon.border:SetVertexColor(c.r or 1, c.g or 1, c.b or 1, a)
-            icon.border:Show()
-        end
-        if hasFrameBorder and icon.borderFrame then
-            if icon.borderSkin then
-                icon.borderSkin:SetVertexColor(c.r or 1, c.g or 1, c.b or 1, a)
+        local r, g, b = c.r or 1, c.g or 1, c.b or 1
+        local colorChanged = (icon._lastBorderR ~= r) or (icon._lastBorderG ~= g) or (icon._lastBorderB ~= b) or (icon._lastBorderA ~= a)
+        if pulseEnabled or colorChanged or not icon._borderVisible then
+            if hasSingleBorder and icon.border then
+                if colorChanged or pulseEnabled then
+                    icon.border:SetVertexColor(r, g, b, a)
+                end
+                icon.border:Show()
             end
-            icon.borderFrame:Show()
-        end
-        if hasEdgeBorder then
-            local r, g, b = c.r or 1, c.g or 1, c.b or 1
-            icon.borderEdges.top:SetVertexColor(r, g, b, a)
-            icon.borderEdges.bottom:SetVertexColor(r, g, b, a)
-            icon.borderEdges.left:SetVertexColor(r, g, b, a)
-            icon.borderEdges.right:SetVertexColor(r, g, b, a)
-            icon.borderEdges.top:Show()
-            icon.borderEdges.bottom:Show()
-            icon.borderEdges.left:Show()
-            icon.borderEdges.right:Show()
+            if hasFrameBorder and icon.borderFrame then
+                if icon.borderSkin and (colorChanged or pulseEnabled) then
+                    icon.borderSkin:SetVertexColor(r, g, b, a)
+                end
+                icon.borderFrame:Show()
+            end
+            if hasEdgeBorder then
+                if colorChanged or pulseEnabled then
+                    icon.borderEdges.top:SetVertexColor(r, g, b, a)
+                    icon.borderEdges.bottom:SetVertexColor(r, g, b, a)
+                    icon.borderEdges.left:SetVertexColor(r, g, b, a)
+                    icon.borderEdges.right:SetVertexColor(r, g, b, a)
+                end
+                icon.borderEdges.top:Show()
+                icon.borderEdges.bottom:Show()
+                icon.borderEdges.left:Show()
+                icon.borderEdges.right:Show()
+            end
+            icon._lastBorderR, icon._lastBorderG, icon._lastBorderB, icon._lastBorderA = r, g, b, a
+            icon._borderVisible = true
         end
     else
-        HideBorder()
+        if icon._borderVisible then
+            if hasSingleBorder and icon.border then
+                icon.border:Hide()
+            end
+            if hasFrameBorder and icon.borderFrame then
+                icon.borderFrame:Hide()
+            end
+            if hasEdgeBorder then
+                icon.borderEdges.top:Hide()
+                icon.borderEdges.bottom:Hide()
+                icon.borderEdges.left:Hide()
+                icon.borderEdges.right:Hide()
+            end
+            icon._borderVisible = false
+        end
     end
 end
 
@@ -171,6 +180,7 @@ function IcicleRender.CollectDisplayRecords(ctx, meta)
     WipeArray(out)
     meta._renderRecords = out
     local now = GetTime()
+    local outIndex = 0
 
     if ctx.STATE.testModeActive and ctx.STATE.testByPlate[meta.plate] then
         local testRecords = ctx.STATE.testByPlate[meta.plate]
@@ -197,10 +207,24 @@ function IcicleRender.CollectDisplayRecords(ctx, meta)
         if conf >= ctx.db.minConfidence then
             local byGUID = ctx.STATE.cooldownsByGUID[guidEntry.guid]
             if byGUID then
-                for _, rec in pairs(byGUID) do
-                    if rec.expiresAt > now then
+                local list, count = nil, 0
+                if ctx.GetRecordList then
+                    list, count = ctx.GetRecordList(byGUID, now)
+                end
+                if list and count > 0 then
+                    for i = 1, count do
+                        local rec = list[i]
                         rec.__ambiguous = false
-                        tinsert(out, rec)
+                        outIndex = outIndex + 1
+                        out[outIndex] = rec
+                    end
+                else
+                    for spellID, rec in pairs(byGUID) do
+                        if type(spellID) == "number" and rec.expiresAt > now then
+                            rec.__ambiguous = false
+                            outIndex = outIndex + 1
+                            out[outIndex] = rec
+                        end
                     end
                 end
                 guidEntry.lastSeen = now
@@ -215,10 +239,28 @@ function IcicleRender.CollectDisplayRecords(ctx, meta)
             local visible = ctx.STATE.visiblePlatesByName[meta.name]
             local visibleCount = visible and visible.count or 0
             if visibleCount == 1 or ctx.db.showAmbiguousByName then
-                for _, rec in pairs(byName) do
-                    if rec.expiresAt > now then
-                        rec.__ambiguous = (visibleCount > 1)
-                        tinsert(out, rec)
+                local list, count = nil, 0
+                if ctx.GetRecordList then
+                    list, count = ctx.GetRecordList(byName, now)
+                end
+                if list and count > 0 then
+                    for i = 1, count do
+                        local rec = list[i]
+                        if (now - (rec.startAt or 0)) <= NAME_FALLBACK_RENDER_WINDOW then
+                            rec.__ambiguous = (visibleCount > 1)
+                            outIndex = outIndex + 1
+                            out[outIndex] = rec
+                        end
+                    end
+                else
+                    for spellID, rec in pairs(byName) do
+                        if type(spellID) == "number" and rec.expiresAt > now then
+                            if (now - (rec.startAt or 0)) <= NAME_FALLBACK_RENDER_WINDOW then
+                                rec.__ambiguous = (visibleCount > 1)
+                                outIndex = outIndex + 1
+                                out[outIndex] = rec
+                            end
+                        end
                     end
                 end
             end
@@ -251,9 +293,20 @@ function IcicleRender.RenderPlate(ctx, meta)
         local remain = rec.expiresAt - now
         local r, g, b = ctx.GetIconTextColor(remain)
 
-        icon.texture:SetTexture(rec.texture or "Interface\\Icons\\INV_Misc_QuestionMark")
-        icon.cooldown:SetTextColor(r, g, b)
-        icon.cooldown:SetText(ctx.FormatRemaining(remain))
+        local texturePath = rec.texture or "Interface\\Icons\\INV_Misc_QuestionMark"
+        if icon._lastTexture ~= texturePath then
+            icon.texture:SetTexture(texturePath)
+            icon._lastTexture = texturePath
+        end
+        if icon._lastR ~= r or icon._lastG ~= g or icon._lastB ~= b then
+            icon.cooldown:SetTextColor(r, g, b)
+            icon._lastR, icon._lastG, icon._lastB = r, g, b
+        end
+        local cooldownText = ctx.FormatRemaining(remain)
+        if icon._lastCooldownText ~= cooldownText then
+            icon.cooldown:SetText(cooldownText)
+            icon._lastCooldownText = cooldownText
+        end
         icon.record = rec
         icon.isOverflow = nil
         icon:SetAlpha(rec.__ambiguous and 0.45 or 1)
@@ -265,8 +318,16 @@ function IcicleRender.RenderPlate(ctx, meta)
     if #records > cap and cap > 0 then
         local last = meta.activeIcons[#meta.activeIcons]
         if last then
-            last.texture:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
-            last.cooldown:SetText("+" .. tostring(#records - cap + 1))
+            local overflowTexture = "Interface\\Icons\\INV_Misc_QuestionMark"
+            if last._lastTexture ~= overflowTexture then
+                last.texture:SetTexture(overflowTexture)
+                last._lastTexture = overflowTexture
+            end
+            local overflowText = "+" .. tostring(#records - cap + 1)
+            if last._lastCooldownText ~= overflowText then
+                last.cooldown:SetText(overflowText)
+                last._lastCooldownText = overflowText
+            end
             last.record = { spellID = 0, spellName = "Overflow", expiresAt = now + 9999 }
             last.isOverflow = true
             last:SetAlpha(1)
@@ -288,6 +349,11 @@ function IcicleRender.RenderPlate(ctx, meta)
             icon:Hide()
             icon.record = nil
             icon.isOverflow = nil
+            icon._lastTexture = nil
+            icon._lastCooldownText = nil
+            icon._lastR, icon._lastG, icon._lastB = nil, nil, nil
+            icon._lastBorderR, icon._lastBorderG, icon._lastBorderB, icon._lastBorderA = nil, nil, nil, nil
+            icon._borderVisible = false
             icon.ambiguousMark:Hide()
             if icon.border then icon.border:Hide() end
             if icon.borderFrame then icon.borderFrame:Hide() end
@@ -306,10 +372,16 @@ function IcicleRender.RenderPlate(ctx, meta)
 end
 
 function IcicleRender.RefreshAllVisiblePlates(ctx)
-    for _, plates in pairs(ctx.STATE.visiblePlatesByName) do
-        for plate in pairs(plates.map) do
-            local meta = ctx.STATE.plateMeta[plate]
-            if meta then IcicleRender.RenderPlate(ctx, meta) end
+    local list = ctx.STATE.visiblePlateList
+    local count = ctx.STATE.visiblePlateCount or (list and #list) or 0
+    if not list or count <= 0 then
+        return
+    end
+    for i = 1, count do
+        local plate = list[i]
+        local meta = plate and plate.IsShown and plate:IsShown() and plate:GetAlpha() > 0 and ctx.STATE.plateMeta[plate]
+        if meta then
+            IcicleRender.RenderPlate(ctx, meta)
         end
     end
 end
@@ -324,7 +396,22 @@ function IcicleRender.OnUpdate(ctx, elapsed)
 
     if ctx.STATE.scanAccum >= ctx.db.scanInterval then
         ctx.STATE.scanAccum = 0
-        ctx.ScanNameplates()
+        local shouldScan = false
+        if (ctx.STATE.dirtyPlateCount or 0) > 0 then
+            shouldScan = true
+        elseif ctx.STATE.pendingBindByGUID and next(ctx.STATE.pendingBindByGUID) then
+            shouldScan = true
+        elseif ctx.GetWorldChildrenCount then
+            local worldCount = ctx.GetWorldChildrenCount()
+            if worldCount ~= (ctx.STATE.lastWorldChildrenCount or 0) then
+                shouldScan = true
+            end
+        else
+            shouldScan = true
+        end
+        if shouldScan then
+            ctx.ScanNameplates()
+        end
     end
 
     if ctx.STATE.groupAccum >= ctx.db.groupScanInterval then
@@ -345,27 +432,45 @@ function IcicleRender.OnUpdate(ctx, elapsed)
         local now = GetTime()
         local changed = false
 
-        changed = ctx.PruneExpiredStore(ctx.STATE.cooldownsByGUID, now) or changed
-        changed = ctx.PruneExpiredStore(ctx.STATE.cooldownsByName, now) or changed
+        if ctx.ProcessExpiryQueue then
+            changed = ctx.ProcessExpiryQueue(now) or changed
+        else
+            changed = ctx.PruneExpiredStore(ctx.STATE.cooldownsByGUID, now) or changed
+            changed = ctx.PruneExpiredStore(ctx.STATE.cooldownsByName, now) or changed
+        end
 
         if changed then
-            IcicleRender.RefreshAllVisiblePlates(ctx)
+            if ctx.RefreshDirtyPlates then
+                ctx.RefreshDirtyPlates()
+            else
+                IcicleRender.RefreshAllVisiblePlates(ctx)
+            end
         elseif ctx.STATE.testModeActive then
             -- Test records are filtered during render; force re-render so expired test icons disappear on time.
             IcicleRender.RefreshAllVisiblePlates(ctx)
         else
-            for _, plates in pairs(ctx.STATE.visiblePlatesByName) do
-                for plate in pairs(plates.map) do
-                    local meta = ctx.STATE.plateMeta[plate]
+            local list = ctx.STATE.visiblePlateList
+            local count = ctx.STATE.visiblePlateCount or (list and #list) or 0
+            if list and count > 0 then
+                for p = 1, count do
+                    local plate = list[p]
+                    local meta = plate and plate.IsShown and plate:IsShown() and plate:GetAlpha() > 0 and ctx.STATE.plateMeta[plate]
                     if meta then
                         for i = 1, #meta.activeIcons do
                             local icon = meta.activeIcons[i]
                             local rec = icon.record
                             if rec and not icon.isOverflow then
                                 local remain = rec.expiresAt - now
-                                icon.cooldown:SetText(ctx.FormatRemaining(remain))
+                                local cooldownText = ctx.FormatRemaining(remain)
+                                if icon._lastCooldownText ~= cooldownText then
+                                    icon.cooldown:SetText(cooldownText)
+                                    icon._lastCooldownText = cooldownText
+                                end
                                 local r, g, b = ctx.GetIconTextColor(remain)
-                                icon.cooldown:SetTextColor(r, g, b)
+                                if icon._lastR ~= r or icon._lastG ~= g or icon._lastB ~= b then
+                                    icon.cooldown:SetTextColor(r, g, b)
+                                    icon._lastR, icon._lastG, icon._lastB = r, g, b
+                                end
                                 if rec.isInterrupt and ctx.db.highlightInterrupts then
                                     ApplyPriorityBorder(ctx, icon, rec, now)
                                 end

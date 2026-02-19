@@ -131,11 +131,18 @@ function IcicleResolver.MigrateNameCooldownsToGUID(ctx, name, guid)
     local byName = ctx.STATE.cooldownsByName[name]
     if not byName then return end
 
-    ctx.STATE.cooldownsByGUID[guid] = ctx.STATE.cooldownsByGUID[guid] or {}
+    ctx.STATE.cooldownsByGUID[guid] = ctx.STATE.cooldownsByGUID[guid] or { __dirty = true, __list = {}, __listCount = 0 }
+    local byGUID = ctx.STATE.cooldownsByGUID[guid]
     for spellID, rec in pairs(byName) do
-        local current = ctx.STATE.cooldownsByGUID[guid][spellID]
-        if (not current) or current.expiresAt < rec.expiresAt then
-            ctx.STATE.cooldownsByGUID[guid][spellID] = rec
+        if type(spellID) == "number" and type(rec) == "table" then
+            local current = byGUID[spellID]
+            if (not current) or current.expiresAt < rec.expiresAt then
+                byGUID[spellID] = rec
+                byGUID.__dirty = true
+                if ctx.RegisterExpiryRecord then
+                    ctx.RegisterExpiryRecord("guid", guid, rec)
+                end
+            end
         end
     end
     ctx.STATE.cooldownsByName[name] = nil
