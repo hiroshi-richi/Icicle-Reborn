@@ -51,9 +51,9 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
         ctx.addon:RegisterEvent("PLAYER_FOCUS_CHANGED")
         ctx.addon:RegisterEvent("UNIT_TARGET")
         ctx.addon:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
-        ctx.addon:RegisterEvent("UNIT_AURA")
-        ctx.addon:RegisterEvent("ARENA_OPPONENT_UPDATE")
-        ctx.addon:RegisterEvent("INSPECT_TALENT_READY")
+        if ctx.UpdateAdvancedSpecEvents then
+            ctx.UpdateAdvancedSpecEvents()
+        end
 
         ctx.addon:SetScript("OnUpdate", ctx.OnUpdate)
         if ctx.CommitRefs then
@@ -124,18 +124,23 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
         local unitID = ...
         if unitID == "target" or unitID == "focus" or unitID == "mouseover" then
             ctx.HandleUnitSignal(unitID, 0.9, "unit-target")
-        else
-            local targetUnit = unitID .. "target"
-            if UnitExists(targetUnit) then
-                ctx.ResolveUnit(targetUnit, 0.8, "group-target")
-            end
         end
         return
     end
 
     if event == "UNIT_AURA" then
+        local db = ctx.dbRef and ctx.dbRef.value or nil
+        if not (db and db.specDetectEnabled) then
+            return
+        end
         local unit = ...
         if not unit or unit == "" then return end
+        if unit ~= "target" and unit ~= "focus" and unit ~= "mouseover" and not string.match(unit, "^arena%d+$") then
+            return
+        end
+        if not UnitExists(unit) or not UnitCanAttack("player", unit) then
+            return
+        end
         if ctx.HandleFeignDeathAura then
             ctx.HandleFeignDeathAura(unit)
         end
@@ -144,7 +149,7 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
         local canCheck = true
         if guid then
             local last = ctx.STATE.lastSpecAuraCheckByGUID and ctx.STATE.lastSpecAuraCheckByGUID[guid]
-            if last and (now - last) < 0.20 then
+            if last and (now - last) < 0.35 then
                 canCheck = false
             else
                 ctx.STATE.lastSpecAuraCheckByGUID = ctx.STATE.lastSpecAuraCheckByGUID or {}
@@ -162,14 +167,30 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
     end
 
     if event == "ARENA_OPPONENT_UPDATE" then
-        local unit, updateReason = ...
-        if unit and updateReason ~= "cleared" then
-            ctx.QueueInspectForUnit(unit)
+        local db = ctx.dbRef and ctx.dbRef.value or nil
+        if not (db and db.specDetectEnabled) then
+            return
         end
+        local unit, updateReason = ...
+        if not unit or updateReason == "cleared" then
+            return
+        end
+        if not UnitExists(unit) then
+            return
+        end
+        local guid = UnitGUID(unit)
+        if guid and ctx.STATE.specByGUID and ctx.STATE.specByGUID[guid] then
+            return
+        end
+        ctx.QueueInspectForUnit(unit)
         return
     end
 
     if event == "INSPECT_TALENT_READY" then
+        local db = ctx.dbRef and ctx.dbRef.value or nil
+        if not (db and db.specDetectEnabled) then
+            return
+        end
         local guid = ...
         ctx.HandleInspectTalentReady(guid)
         return

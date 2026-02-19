@@ -957,6 +957,25 @@ local function TryResolvePendingBinds()
     return ResolverModule.TryResolvePendingBinds(RESOLVER_CONTEXT)
 end
 
+local function UpdateAdvancedSpecEvents()
+    if not addon then
+        return
+    end
+    local enabled = db and db.specDetectEnabled
+    if enabled then
+        addon:RegisterEvent("UNIT_AURA")
+        addon:RegisterEvent("ARENA_OPPONENT_UPDATE")
+        addon:RegisterEvent("INSPECT_TALENT_READY")
+    else
+        addon:UnregisterEvent("UNIT_AURA")
+        addon:UnregisterEvent("ARENA_OPPONENT_UPDATE")
+        addon:UnregisterEvent("INSPECT_TALENT_READY")
+        WipeTable(STATE.inspectQueue)
+        WipeTable(STATE.inspectQueuedByGUID)
+        STATE.inspectCurrent = nil
+    end
+end
+
 RENDER_CONTEXT = {
     STATE = STATE,
     db = nil,
@@ -1025,6 +1044,7 @@ RegisterPlate = function(frame)
 
     EnsureContainer(meta)
     ApplyContainerAnchor(meta)
+    MarkPlateDirty(frame)
 
     if not frame.IcicleHooked then
         frame:HookScript("OnHide", OnPlateHide)
@@ -1303,6 +1323,7 @@ local function ProfilesChanged()
     WipeTable(STATE.spellCategoryCache)
     ConfigModule.NormalizeProfile(db, BASE_COOLDOWNS)
     EnsureDefaultSpellProfile(db)
+    UpdateAdvancedSpecEvents()
     PrimeEnabledItemDisplayInfo()
     SyncSpecHintsFromDB()
     RebuildInternalAPI()
@@ -1340,30 +1361,32 @@ BuildOptionsPanel = function()
         BuildSpellTooltipBody = BuildSpellTooltipBody,
         BuildSpellPanelDesc = BuildSpellPanelDesc,
         NotifySpellsChanged = NotifySpellsChanged,
+        UpdateAdvancedSpecEvents = UpdateAdvancedSpecEvents,
         GetBaseSpellEntry = GetBaseSpellEntry,
         ResetAllCooldowns = ResetAllCooldowns,
     })
 end
 
 local function OnUpdate(_, elapsed)
-    if db then
+    if db and db.specDetectEnabled then
         SyncSpecContext()
         STATE.specAccum = (STATE.specAccum or 0) + elapsed
-        if STATE.specAccum >= 1.0 then
+        if STATE.specAccum >= 2.0 then
             STATE.specAccum = 0
             if SpecModule.PruneExpiredHints(SPEC_CONTEXT) then
                 RefreshAllVisiblePlates()
             end
         end
         STATE.inspectAccum = (STATE.inspectAccum or 0) + elapsed
-        if STATE.inspectAccum >= (tonumber(db.inspectRetryInterval) or 1.0) then
+        local inspectTick = math.max(1.2, tonumber(db.inspectRetryInterval) or 1.0)
+        if STATE.inspectAccum >= inspectTick then
             STATE.inspectAccum = 0
             ProcessInspectQueue()
         end
     end
     SyncRenderContext()
     RENDER_CONTEXT.ScanNameplates = ScanNameplates
-    RENDER_CONTEXT.ResolveGroupTargets = ResolveGroupTargets
+    RENDER_CONTEXT.ResolveGroupTargets = nil
     RENDER_CONTEXT.PopulateRandomPlateTests = PopulateRandomPlateTests
     return RenderModule.OnUpdate(RENDER_CONTEXT, elapsed)
 end
@@ -1753,6 +1776,7 @@ local EVENTS_CONTEXT = {
     SyncSpecContext = SyncSpecContext,
     SPEC_CONTEXT = SPEC_CONTEXT,
     COOLDOWN_RULES_CONTEXT = COOLDOWN_RULES_CONTEXT,
+    UpdateAdvancedSpecEvents = UpdateAdvancedSpecEvents,
     RecordCombatReaction = RecordCombatReaction,
     StartCooldown = StartCooldown,
     OnUpdate = OnUpdate,

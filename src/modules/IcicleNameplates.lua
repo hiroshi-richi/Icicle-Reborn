@@ -234,24 +234,18 @@ function IcicleNameplates.ScanNameplates(ctx)
         end
     end
 
-    if fullRescan then
-        for plate in pairs(ctx.STATE.knownPlates) do
+    local prevCount = previousVisible and #previousVisible or 0
+    for i = 1, prevCount do
+        local plate = previousVisible[i]
+        if plate then
             ProcessPlate(plate)
         end
-    else
-        local prevCount = previousVisible and #previousVisible or 0
-        for i = 1, prevCount do
-            local plate = previousVisible[i]
-            if plate then
-                ProcessPlate(plate)
-            end
-        end
-        local dirtyCount = ctx.STATE.dirtyPlateCount or 0
-        for i = 1, dirtyCount do
-            local plate = ctx.STATE.dirtyPlateList and ctx.STATE.dirtyPlateList[i]
-            if plate and (not previousVisibleSet or not previousVisibleSet[plate]) then
-                ProcessPlate(plate)
-            end
+    end
+    local dirtyCount = ctx.STATE.dirtyPlateCount or 0
+    for i = 1, dirtyCount do
+        local plate = ctx.STATE.dirtyPlateList and ctx.STATE.dirtyPlateList[i]
+        if plate and (not previousVisibleSet or not previousVisibleSet[plate]) then
+            ProcessPlate(plate)
         end
     end
 

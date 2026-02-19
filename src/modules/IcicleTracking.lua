@@ -244,7 +244,7 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
         sourceRule = ctx.GetSpellConfig(spellID, sourceGUID, sourceName)
     end
     local now = GetTime()
-    local sourceKey = sourceGUID or sourceName
+    local sourceKey = sourceGUID
     if not sourceKey then
         return
     end
@@ -291,21 +291,8 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
         hasChanges = true
     end
 
-    local bound = false
-    if sourceGUID and sourceName then
-        bound = ctx.TryBindByName(sourceGUID, sourceName, 0.9, "combatlog", spellName, now)
-        if bound then
-            ctx.MigrateNameCooldownsToGUID(sourceName, sourceGUID)
-        elseif ctx.RegisterPendingBind then
-            ctx.RegisterPendingBind(sourceGUID, sourceName, spellName, now)
-        end
-    end
-
-    if sourceName and (not sourceGUID or not bound) then
-        for i = 1, #records do
-            UpsertRecord(ctx, ctx.STATE.cooldownsByName, sourceName, records[i], "name")
-        end
-        hasChanges = true
+    if sourceGUID and sourceName and ctx.TryBindByName then
+        ctx.TryBindByName(sourceGUID, sourceName, 0.9, "combatlog", spellName, now)
     end
 
     local resetSpells = sourceRule and sourceRule.resetSpells or nil
@@ -314,15 +301,11 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
             local changed = ApplyResets(ctx.STATE.cooldownsByGUID, sourceGUID, resetSpells)
             hasChanges = changed or hasChanges
         end
-        if sourceName then
-            local changed = ApplyResets(ctx.STATE.cooldownsByName, sourceName, resetSpells)
-            hasChanges = changed or hasChanges
-        end
     end
 
     if hasChanges then
         if ctx.MarkDirtyBySource then
-            ctx.MarkDirtyBySource(sourceGUID, sourceName)
+            ctx.MarkDirtyBySource(sourceGUID, nil)
         end
         if ctx.RefreshDirtyPlates then
             ctx.RefreshDirtyPlates()

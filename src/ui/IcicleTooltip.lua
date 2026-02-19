@@ -108,7 +108,8 @@ end
 function IcicleTooltip.GetSpellDescSafe(spellID, isItem)
     if not spellID then return "No description available." end
     spellID = IcicleTooltip.ResolveDisplaySpellOrItemID(spellID, isItem)
-    return ScanTooltipDescriptionRaw(spellID, isItem)
+    local cacheKey = (isItem and "item:" or "spell:") .. tostring(spellID)
+    return spellTooltipCache[cacheKey] or "No description available."
 end
 
 function IcicleTooltip.PreloadEnabledItemDisplayInfo(db, defaultItemIDs, isItemSpellFn)

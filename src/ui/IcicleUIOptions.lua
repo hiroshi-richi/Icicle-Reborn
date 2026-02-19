@@ -112,7 +112,11 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
 
     local function OptionsSet(info, value)
         local db = DB()
-        db[info[#info]] = value
+        local key = info[#info]
+        db[key] = value
+        if key == "specDetectEnabled" and ctx.UpdateAdvancedSpecEvents then
+            ctx.UpdateAdvancedSpecEvents()
+        end
         ctx.RefreshAllVisiblePlates()
     end
 
@@ -144,10 +148,11 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
             highlightInterrupts = { type = "toggle", order = 3.3, name = L("style.highlight_interrupts", "Highlight interrupts"), desc = "Do border pulses of interrupt cooldowns." },
             classCategoryFilterEnabled = { type = "toggle", order = 3.4, name = L("general.class_filter", "Filter by spell class/category"), desc = "Prevents class-category spells (Warrior, Druid, etc.) from being assigned to units with a conflicting detected class." },
             showOutOfRangeInspectMessages = { type = "toggle", order = 3.5, name = L("general.show_out_of_range_inspect", "Show out-of-range inspect warnings"), desc = "Prints a message when inspect-based spec detection cannot complete due to range." },
-            showAmbiguousByName = { type = "toggle", order = 3.6, name = "Show ambiguous icon", desc = "Show '?' icon for ambiguity unit (target/focus/mouseover the unit to detect cooldowns)" },
+            specDetectEnabled = { type = "toggle", order = 3.6, name = "Enable Advanced Spec Detection", desc = "Uses aura/inspect-based enemy spec detection for modifier-aware cooldowns. Higher CPU cost." },
+            showAmbiguousByName = { type = "toggle", order = 3.7, name = "Show ambiguous icon", desc = "Show '?' icon for ambiguity unit (target/focus/mouseover the unit to detect cooldowns)" },
             testMode = {
                 type = "toggle",
-                order = 3.7,
+                order = 3.8,
                 name = "Test mode",
                 desc = "Enable or disable synthetic cooldown icons on visible nameplates for UI testing.",
                 get = function()
@@ -160,7 +165,7 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
                     end
                 end,
             },
-            sep2 = { type = "description", order = 3.8, name = " ", width = "full" },
+            sep2 = { type = "description", order = 3.9, name = " ", width = "full" },
 
             performanceHeader = { type = "header", order = 4, name = "Performance" },
             scanInterval = { type = "range", order = 4.1, name = "Scan interval", desc = "How often nameplates are scanned for updates.", min = 0.10, max = 0.50, step = 0.01 },

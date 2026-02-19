@@ -28,7 +28,7 @@ IcicleDefaults = {
     showOutOfRangeInspectMessages = true,
 
     scanInterval = 0.15,
-    iconUpdateInterval = 0.10,
+    iconUpdateInterval = 0.12,
     groupScanInterval = 0.35,
     testRefreshInterval = 10.0,
 

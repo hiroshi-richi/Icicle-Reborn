@@ -3,7 +3,6 @@ IcicleRender = IcicleRender or {}
 local tinsert, tremove, tsort = table.insert, table.remove, table.sort
 local min, sin = math.min, math.sin
 local GetTime = GetTime
-local NAME_FALLBACK_RENDER_WINDOW = 2.5
 
 local function SortByExpire(a, b)
     return a.expiresAt < b.expiresAt
@@ -207,62 +206,15 @@ function IcicleRender.CollectDisplayRecords(ctx, meta)
         if conf >= ctx.db.minConfidence then
             local byGUID = ctx.STATE.cooldownsByGUID[guidEntry.guid]
             if byGUID then
-                local list, count = nil, 0
-                if ctx.GetRecordList then
-                    list, count = ctx.GetRecordList(byGUID, now)
-                end
-                if list and count > 0 then
-                    for i = 1, count do
-                        local rec = list[i]
-                        rec.__ambiguous = false
-                        outIndex = outIndex + 1
-                        out[outIndex] = rec
-                    end
-                else
-                    for spellID, rec in pairs(byGUID) do
-                        if type(spellID) == "number" and rec.expiresAt > now then
-                            rec.__ambiguous = false
-                            outIndex = outIndex + 1
-                            out[outIndex] = rec
-                        end
-                    end
+                local list, count = ctx.GetRecordList(byGUID, now)
+                for i = 1, count do
+                    local rec = list[i]
+                    rec.__ambiguous = false
+                    outIndex = outIndex + 1
+                    out[outIndex] = rec
                 end
                 guidEntry.lastSeen = now
                 return out
-            end
-        end
-    end
-
-    if meta.name then
-        local byName = ctx.STATE.cooldownsByName[meta.name]
-        if byName then
-            local visible = ctx.STATE.visiblePlatesByName[meta.name]
-            local visibleCount = visible and visible.count or 0
-            if visibleCount == 1 or ctx.db.showAmbiguousByName then
-                local list, count = nil, 0
-                if ctx.GetRecordList then
-                    list, count = ctx.GetRecordList(byName, now)
-                end
-                if list and count > 0 then
-                    for i = 1, count do
-                        local rec = list[i]
-                        if (now - (rec.startAt or 0)) <= NAME_FALLBACK_RENDER_WINDOW then
-                            rec.__ambiguous = (visibleCount > 1)
-                            outIndex = outIndex + 1
-                            out[outIndex] = rec
-                        end
-                    end
-                else
-                    for spellID, rec in pairs(byName) do
-                        if type(spellID) == "number" and rec.expiresAt > now then
-                            if (now - (rec.startAt or 0)) <= NAME_FALLBACK_RENDER_WINDOW then
-                                rec.__ambiguous = (visibleCount > 1)
-                                outIndex = outIndex + 1
-                                out[outIndex] = rec
-                            end
-                        end
-                    end
-                end
             end
         end
     end
@@ -416,7 +368,9 @@ function IcicleRender.OnUpdate(ctx, elapsed)
 
     if ctx.STATE.groupAccum >= ctx.db.groupScanInterval then
         ctx.STATE.groupAccum = 0
-        ctx.ResolveGroupTargets()
+        if ctx.ResolveGroupTargets then
+            ctx.ResolveGroupTargets()
+        end
     end
 
     if ctx.STATE.testModeActive and ctx.STATE.testAccum >= (tonumber(ctx.db.testRefreshInterval) or 10.0) then
@@ -436,7 +390,6 @@ function IcicleRender.OnUpdate(ctx, elapsed)
             changed = ctx.ProcessExpiryQueue(now) or changed
         else
             changed = ctx.PruneExpiredStore(ctx.STATE.cooldownsByGUID, now) or changed
-            changed = ctx.PruneExpiredStore(ctx.STATE.cooldownsByName, now) or changed
         end
 
         if changed then
@@ -460,6 +413,11 @@ function IcicleRender.OnUpdate(ctx, elapsed)
                             local icon = meta.activeIcons[i]
                             local rec = icon.record
                             if rec and not icon.isOverflow then
+                                if now < (icon._nextTextUpdateAt or 0) then
+                                    if rec.isInterrupt and ctx.db.highlightInterrupts then
+                                        ApplyPriorityBorder(ctx, icon, rec, now)
+                                    end
+                                else
                                 local remain = rec.expiresAt - now
                                 local cooldownText = ctx.FormatRemaining(remain)
                                 if icon._lastCooldownText ~= cooldownText then
@@ -471,8 +429,14 @@ function IcicleRender.OnUpdate(ctx, elapsed)
                                     icon.cooldown:SetTextColor(r, g, b)
                                     icon._lastR, icon._lastG, icon._lastB = r, g, b
                                 end
+                                if remain > 10 then
+                                    icon._nextTextUpdateAt = now + 0.35
+                                else
+                                    icon._nextTextUpdateAt = now + 0.10
+                                end
                                 if rec.isInterrupt and ctx.db.highlightInterrupts then
                                     ApplyPriorityBorder(ctx, icon, rec, now)
+                                end
                                 end
                             end
                         end
