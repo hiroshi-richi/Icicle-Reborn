@@ -1,9 +1,13 @@
 ## Interface: 30300
 ## Title: Icicle: Reborn
-## Notes: Tracks enemy cooldown usage and shows active cooldown on nameplates.
+## Notes: Tracks enemy cooldown usage and shows active cooldown timers on nameplates.
 ## SavedVariables: Icicledb
 ## Author: Hiroshi Richi
-## Version: 1.0.0
+## Version: 1.0.0-Beta
+## X-Flavor: WotLK 3.3.5a
+## X-ReleaseDate: 2026-02-19
+## X-Category: PvP
+## X-DefaultState: Enabled
 
 Icicle.xml
 src\config\settings.lua

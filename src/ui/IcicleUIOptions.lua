@@ -7,6 +7,7 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
     if ctx.IsBuilt() or not (ctx.AceConfig and ctx.AceConfigDialog) then
         return
     end
+    local addonVersion = (GetAddOnMetadata and GetAddOnMetadata("Icicle", "Version")) or "dev"
 
     local function DB()
         return ctx.GetDB()
@@ -26,9 +27,10 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
             introOverview = {
                 type = "description",
                 order = 1,
-                name = "Icicle: Reborn tracks enemy cooldown usage and shows active cooldown timers directly on nameplates. " ..
+                name = "Version: " .. tostring(addonVersion) .. " (WotLK 3.3.5a)\n\n" ..
+                    "Icicle: Reborn tracks enemy cooldown usage and shows active cooldown timers directly on nameplates. " ..
                     "It is designed to give fast combat awareness without needing to move your eyes away from enemy units.\n\n" ..
-                    "The addon listens to combat events, identifies who casted what, maps that information to visible nameplates, " ..
+                    "The addon listens to combat events, identifies who cast what, maps that information to visible nameplates, " ..
                     "and renders countdown icons with category-aware visuals.",
             },
             introSpacer1 = {
@@ -147,7 +149,7 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
             showInterruptWhenCapped = { type = "toggle", order = 3.2, name = L("general.show_interrupt_when_capped", "Prioritize interrupt cooldowns when capped"), desc = "When icon cap is reached, prefer showing interrupt cooldowns first." },
             highlightInterrupts = { type = "toggle", order = 3.3, name = L("style.highlight_interrupts", "Highlight interrupts"), desc = "Do border pulses of interrupt cooldowns." },
             specDetectEnabled = { type = "toggle", order = 3.4, name = "Enable Advanced Spec Detection", desc = "Uses aura/inspect enemy spec detection for modifier-aware cooldowns. Higher CPU cost." },
-            classCategoryFilterEnabled = { type = "toggle", order = 3.5, name = L("general.class_filter", "Filter by spell class/category"), desc = "Prevents class-category spells (Warrior, Druid, etc.) from being assigned to units with a conflicting detected class." },
+            classCategoryFilterEnabled = { type = "toggle", order = 3.5, name = L("general.class_filter", "Filter by spell class/category"), desc = "Supports class/category filtering to prevent class-spell miss matches." },
             showOutOfRangeInspectMessages = { type = "toggle", order = 3.6, name = L("general.show_out_of_range_inspect", "Show out-of-range inspect warnings"), desc = "Prints a message when inspect-based spec detection cannot complete due to range." },
             showAmbiguousByName = { type = "toggle", order = 3.7, name = "Show ambiguous icon", desc = "Show '?' icon for ambiguity unit (target/focus/mouseover the unit to detect cooldowns)" },
             testMode = {
