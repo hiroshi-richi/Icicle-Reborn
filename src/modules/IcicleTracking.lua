@@ -220,11 +220,6 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
     end
     local sourceSpellID = sourceRule and (sourceRule.spellID or spellID) or spellID
     if IsClassMismatch(ctx, sourceGUID, sourceName, sourceSpellID) then
-        if ctx.DebugLog then
-            local sourceClass = ctx.GetSourceClassCategory and ctx.GetSourceClassCategory(sourceGUID, sourceName) or "unknown"
-            local spellClass = ctx.SpellCategory and ctx.SpellCategory(sourceSpellID) or "unknown"
-            ctx.DebugLog(string.format("class filter rejected spell=%d caster=%s casterClass=%s spellClass=%s", sourceSpellID, tostring(sourceGUID or sourceName), tostring(sourceClass), tostring(spellClass)))
-        end
         return
     end
 
@@ -279,31 +274,15 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
         hasChanges = true
     end
 
-    if ctx.DebugLog and #records > 0 then
-        local sharedCount = 0
-        for i = 1, #records do
-            if records[i].isShared then
-                sharedCount = sharedCount + 1
-            end
-        end
-        ctx.DebugLog(string.format("matrix source=%d caster=%s sourceCd=%.1f sharedApplied=%d", sourceRule and (sourceRule.spellID or spellID) or spellID, tostring(sourceGUID or sourceName), sourceRule and (sourceRule.cd or 0) or 0, sharedCount > 0 and sharedCount or 0))
-    end
-
     local resetSpells = sourceRule and sourceRule.resetSpells or nil
     if resetSpells then
-        local removed = 0
         if sourceGUID then
             local changed = ApplyResets(ctx.STATE.cooldownsByGUID, sourceGUID, resetSpells)
             hasChanges = changed or hasChanges
-            if changed then removed = removed + 1 end
         end
         if sourceName then
             local changed = ApplyResets(ctx.STATE.cooldownsByName, sourceName, resetSpells)
             hasChanges = changed or hasChanges
-            if changed then removed = removed + 1 end
-        end
-        if ctx.DebugLog and removed > 0 then
-            ctx.DebugLog(string.format("matrix reset source=%d caster=%s stores=%d", sourceRule.spellID or spellID, tostring(sourceGUID or sourceName), removed))
         end
     end
 

@@ -12,7 +12,6 @@ function IcicleBootstrap.BuildInternalAPI(ctx)
         ScanNameplates = ctx.ScanNameplates,
         GetCooldownRule = ctx.GetCooldownRule or ctx.GetSpellConfig,
         GetSpellConfig = ctx.GetSpellConfig,
-        DebugSpellRule = ctx.DebugSpellRule,
         BuildSpellRowsData = ctx.BuildSpellRowsData,
         NotifySpellsChanged = ctx.NotifySpellsChanged,
     }

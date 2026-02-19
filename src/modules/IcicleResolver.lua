@@ -44,15 +44,6 @@ local function PlateReaction(ctx, plate)
     return ctx.STATE.reactionByPlate and ctx.STATE.reactionByPlate[plate] or nil
 end
 
-local function CountTableEntries(tbl)
-    local n = 0
-    if not tbl then return 0 end
-    for _ in pairs(tbl) do
-        n = n + 1
-    end
-    return n
-end
-
 local function PruneCandidateGuids(ctx)
     local now = GetTime()
     local ttl = (ctx.db and ctx.db.mappingTTL or 8) * 2
@@ -98,20 +89,11 @@ function IcicleResolver.SetBinding(ctx, guid, plate, conf, reason, sourceName)
     if not guid or not plate then return false end
 
     local now = GetTime()
-    local stats = ctx.STATE and ctx.STATE.stats
-    if stats then
-        stats.resolverBindAttempts = (stats.resolverBindAttempts or 0) + 1
-    end
     IcicleResolver.RemoveGUIDBinding(ctx, guid)
     IcicleResolver.RemovePlateBinding(ctx, plate)
 
     ctx.STATE.plateByGUID[guid] = { plate = plate, conf = conf, lastSeen = now, sourceName = sourceName, reason = reason }
     ctx.STATE.guidByPlate[plate] = { guid = guid, conf = conf, lastSeen = now, sourceName = sourceName, reason = reason }
-    if stats then
-        stats.resolverBindSuccess = (stats.resolverBindSuccess or 0) + 1
-    end
-
-    ctx.DebugLog(string.format("bind guid=%s conf=%.2f reason=%s", tostring(guid), conf, tostring(reason)))
     return true
 end
 
@@ -143,14 +125,6 @@ function IcicleResolver.RegisterPendingBind(ctx, guid, name, spellName, eventTim
         createdAt = now,
         expiresAt = now + math.max(2, (ctx.db and ctx.db.mappingTTL or 8)),
     }
-    local stats = ctx.STATE and ctx.STATE.stats
-    if stats then
-        stats.pendingBindQueued = (stats.pendingBindQueued or 0) + 1
-        local current = CountTableEntries(ctx.STATE.pendingBindByGUID)
-        if current > (stats.pendingBindPeak or 0) then
-            stats.pendingBindPeak = current
-        end
-    end
 end
 
 function IcicleResolver.MigrateNameCooldownsToGUID(ctx, name, guid)
@@ -222,13 +196,9 @@ end
 function IcicleResolver.TryResolvePendingBinds(ctx)
     ctx.STATE.pendingBindByGUID = ctx.STATE.pendingBindByGUID or {}
     local now = GetTime()
-    local stats = ctx.STATE and ctx.STATE.stats
     for guid, pending in pairs(ctx.STATE.pendingBindByGUID) do
         if not pending or not pending.name or now > (pending.expiresAt or 0) then
             ctx.STATE.pendingBindByGUID[guid] = nil
-            if stats then
-                stats.pendingBindExpired = (stats.pendingBindExpired or 0) + 1
-            end
         else
             local ok = IcicleResolver.TryBindByName(
                 ctx,
@@ -242,9 +212,6 @@ function IcicleResolver.TryResolvePendingBinds(ctx)
             if ok then
                 IcicleResolver.MigrateNameCooldownsToGUID(ctx, pending.name, guid)
                 ctx.STATE.pendingBindByGUID[guid] = nil
-                if stats then
-                    stats.pendingBindResolved = (stats.pendingBindResolved or 0) + 1
-                end
             end
         end
     end

@@ -27,56 +27,56 @@ end
 -- Format: [spellID] = { cd = seconds, enabledDefault = bool, types = { class/shared/item/racial/spell = true } }
 IcicleData.DEFAULT_SPELLS_BY_CATEGORY = {
     GENERAL = {
-        [7744] = { cd = 120, enabledDefault = false, types = { shared = true, racial = true } }, -- Will of the Forsaken
+        [7744] = { cd = 120, enabledDefault = true, types = { shared = true, racial = true } }, -- Will of the Forsaken
         [20549] = { cd = 120, enabledDefault = true, types = { racial = true } }, -- War Stomp
         [20572] = { cd = 120, enabledDefault = false, types = { racial = true } }, -- Blood Fury
-        [20589] = { cd = 60, enabledDefault = true, types = { racial = true } }, -- Escape Artist
-        [20594] = { cd = 120, enabledDefault = false, types = { racial = true } }, -- Stoneform
+        [20589] = { cd = 60, enabledDefault = false, types = { racial = true } }, -- Escape Artist
+        [20594] = { cd = 120, enabledDefault = true, types = { racial = true } }, -- Stoneform
         [26297] = { cd = 180, enabledDefault = false, types = { racial = true } }, -- Berserking
         [28730] = { cd = 120, enabledDefault = true, types = { racial = true } }, -- Arcane Torrent
-        [28880] = { cd = 180, enabledDefault = false, types = { racial = true } }, -- Gift of the Naaru
-        [47088] = { cd = 180, enabledDefault = false, types = { item = true } }, -- No Man's Land -> Borean Tundra, Warsong Hold
-        [50356] = { cd = 120, enabledDefault = false, types = { item = true } }, -- Inject Plague
-        [50364] = { cd = 60, enabledDefault = false, types = { item = true } }, -- Rock Shield
-        [50726] = { cd = 120, enabledDefault = false, types = { item = true } }, -- Sparktouched Oracle State
-        [51377] = { cd = 120, enabledDefault = true, types = { shared = true, item = true } }, -- Unknown
+        [28880] = { cd = 180, enabledDefault = true, types = { racial = true } }, -- Gift of the Naaru
+        [47088] = { cd = 180, enabledDefault = true, types = { item = true } }, -- Satrina's Impeding Scarab
+        [50356] = { cd = 120, enabledDefault = true, types = { item = true } }, -- Corroded Skeleton Key
+        [50364] = { cd = 60, enabledDefault = true, types = { item = true } }, -- Sindragosa's Flawless Fang
+        [50726] = { cd = 120, enabledDefault = true, types = { item = true } }, -- Bauble of True Blood
+        [51378] = { cd = 120, enabledDefault = true, types = { shared = true, item = true } }, -- PvP Trinket
         [58984] = { cd = 120, enabledDefault = false, types = { racial = true } }, -- Shadowmeld
         [59752] = { cd = 120, enabledDefault = true, types = { shared = true, racial = true } }, -- Every Man for Himself
     },
     WARRIOR = {
         [72] = { cd = 12, enabledDefault = true, types = { class = true } }, -- Shield Bash
-        [676] = { cd = 60, enabledDefault = false, types = { class = true } }, -- Disarm
+        [676] = { cd = 60, enabledDefault = true, types = { class = true } }, -- Disarm
         [871] = { cd = 300, enabledDefault = true, types = { class = true } }, -- Shield Wall
         [1680] = { cd = 10, enabledDefault = false, types = { class = true } }, -- Whirlwind
         [1719] = { cd = 300, enabledDefault = false, types = { class = true } }, -- Recklessness
-        [2565] = { cd = 60, enabledDefault = false, types = { class = true } }, -- Shield Block
-        [3411] = { cd = 30, enabledDefault = false, types = { class = true } }, -- Intervene
+        [2565] = { cd = 60, enabledDefault = true, types = { class = true } }, -- Shield Block
+        [3411] = { cd = 30, enabledDefault = true, types = { class = true } }, -- Intervene
         [5246] = { cd = 120, enabledDefault = true, types = { class = true } }, -- Intimidating Shout
         [6552] = { cd = 10, enabledDefault = true, types = { class = true } }, -- Pummel
-        [11578] = { cd = 20, enabledDefault = false, types = { class = true } }, -- Charge
+        [11578] = { cd = 20, enabledDefault = true, types = { class = true } }, -- Charge
         [12292] = { cd = 120, enabledDefault = false, types = { class = true } }, -- Death Wish
         [12328] = { cd = 30, enabledDefault = false, types = { class = true } }, -- Sweeping Strikes
         [12809] = { cd = 30, enabledDefault = true, types = { class = true } }, -- Concussion Blow
-        [12975] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Last Stand
-        [18499] = { cd = 30, enabledDefault = false, types = { class = true } }, -- Berserker Rage
+        [12975] = { cd = 180, enabledDefault = true, types = { class = true } }, -- Last Stand
+        [18499] = { cd = 30, enabledDefault = true, types = { class = true } }, -- Berserker Rage
         [20252] = { cd = 25, enabledDefault = true, types = { class = true } }, -- Intercept
-        [23920] = { cd = 10, enabledDefault = false, types = { class = true } }, -- Spell Reflection
+        [23920] = { cd = 10, enabledDefault = true, types = { class = true } }, -- Spell Reflection
         [30335] = { cd = 4, enabledDefault = false, types = { class = true } }, -- Bloodthirst
-        [46924] = { cd = 90, enabledDefault = false, types = { class = true } }, -- Bladestorm
-        [46968] = { cd = 17, enabledDefault = false, types = { class = true } }, -- Shockwave
+        [46924] = { cd = 90, enabledDefault = true, types = { class = true } }, -- Bladestorm
+        [46968] = { cd = 17, enabledDefault = true, types = { class = true } }, -- Shockwave
         [47486] = { cd = 5, enabledDefault = false, types = { class = true } }, -- Mortal Strike
-        [55694] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Enraged Regeneration
+        [55694] = { cd = 180, enabledDefault = true, types = { class = true } }, -- Enraged Regeneration
         [57755] = { cd = 60, enabledDefault = false, types = { class = true } }, -- Heroic Throw
-        [60970] = { cd = 45, enabledDefault = false, types = { class = true } }, -- Heroic Fury
+        [60970] = { cd = 45, enabledDefault = true, types = { class = true } }, -- Heroic Fury
         [64382] = { cd = 300, enabledDefault = false, types = { class = true } }, -- Shattering Throw
-        [65932] = { cd = 300, enabledDefault = false, types = { class = true } }, -- Retaliation
+        [65932] = { cd = 300, enabledDefault = true, types = { class = true } }, -- Retaliation
     },
     PALADIN = {
         [498] = { cd = 180, enabledDefault = true, types = { class = true } }, -- Divine Protection
         [642] = { cd = 300, enabledDefault = true, types = { class = true } }, -- Divine Shield
         [1038] = { cd = 120, enabledDefault = false, types = { class = true } }, -- Hand of Salvation
         [1044] = { cd = 25, enabledDefault = true, types = { class = true } }, -- Hand of Freedom
-        [6940] = { cd = 120, enabledDefault = false, types = { class = true } }, -- Hand of Sacrifice
+        [6940] = { cd = 120, enabledDefault = true, types = { class = true } }, -- Hand of Sacrifice
         [10278] = { cd = 180, enabledDefault = true, types = { class = true } }, -- Hand of Protection
         [10308] = { cd = 40, enabledDefault = true, types = { class = true } }, -- Hammer of Justice
         [20066] = { cd = 60, enabledDefault = true, types = { class = true } }, -- Repentance
@@ -84,14 +84,14 @@ IcicleData.DEFAULT_SPELLS_BY_CATEGORY = {
         [31789] = { cd = 8, enabledDefault = false, types = { class = true } }, -- Righteous Defense
         [31821] = { cd = 120, enabledDefault = false, types = { class = true } }, -- Aura Mastery
         [31842] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Divine Illumination
-        [31884] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Avenging Wrath
+        [31884] = { cd = 180, enabledDefault = true, types = { class = true } }, -- Avenging Wrath
         [35395] = { cd = 4, enabledDefault = false, types = { class = true } }, -- Crusader Strike
         [48788] = { cd = 1200, enabledDefault = false, types = { class = true } }, -- Lay on Hands
         [48817] = { cd = 30, enabledDefault = false, types = { class = true } }, -- Holy Wrath
         [48819] = { cd = 8, enabledDefault = false, types = { class = true } }, -- Consecration
         [48825] = { cd = 5, enabledDefault = false, types = { class = true } }, -- Holy Shock
         [48827] = { cd = 30, enabledDefault = false, types = { class = true } }, -- Avenger's Shield
-        [48952] = { cd = 8, enabledDefault = false, types = { class = true } }, -- Holy Shield
+        [48952] = { cd = 8, enabledDefault = true, types = { class = true } }, -- Holy Shield
         [53385] = { cd = 10, enabledDefault = false, types = { class = true } }, -- Divine Storm
         [53595] = { cd = 6, enabledDefault = false, types = { class = true } }, -- Hammer of the Righteous
         [54428] = { cd = 60, enabledDefault = false, types = { class = true } }, -- Divine Plea
@@ -101,15 +101,15 @@ IcicleData.DEFAULT_SPELLS_BY_CATEGORY = {
     HUNTER = {
         [3045] = { cd = 300, enabledDefault = false, types = { class = true } }, -- Rapid Fire
         [5384] = { cd = 25, enabledDefault = false, types = { class = true } }, -- Feign Death
-        [13809] = { cd = 28, enabledDefault = false, types = { class = true } }, -- Frost Trap
+        [13809] = { cd = 28, enabledDefault = true, types = { class = true } }, -- Frost Trap
         [14311] = { cd = 28, enabledDefault = true, types = { class = true } }, -- Freezing Trap
         [19263] = { cd = 90, enabledDefault = true, types = { class = true } }, -- Deterrence
         [19503] = { cd = 30, enabledDefault = true, types = { class = true } }, -- Scatter Shot
         [19574] = { cd = 120, enabledDefault = false, types = { class = true } }, -- Bestial Wrath
         [19577] = { cd = 60, enabledDefault = true, types = { class = true } }, -- Intimidation
-        [23989] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Readiness
+        [23989] = { cd = 180, enabledDefault = true, types = { class = true } }, -- Readiness
         [34490] = { cd = 20, enabledDefault = true, types = { class = true } }, -- Silencing Shot
-        [34600] = { cd = 28, enabledDefault = false, types = { class = true } }, -- Snake Trap
+        [34600] = { cd = 28, enabledDefault = true, types = { class = true } }, -- Snake Trap
         [49012] = { cd = 60, enabledDefault = true, types = { class = true } }, -- Wyvern Sting
         [49050] = { cd = 8, enabledDefault = false, types = { class = true } }, -- Aimed Shot
         [49055] = { cd = 28, enabledDefault = false, types = { class = true } }, -- Immolation Trap
@@ -117,29 +117,29 @@ IcicleData.DEFAULT_SPELLS_BY_CATEGORY = {
         [53209] = { cd = 10, enabledDefault = false, types = { class = true } }, -- Chimera Shot
         [53271] = { cd = 60, enabledDefault = true, types = { class = true } }, -- Master's Call
         [53476] = { cd = 30, enabledDefault = false, types = { class = true } }, -- Intervene
-        [53480] = { cd = 60, enabledDefault = false, types = { class = true } }, -- Roar of Sacrifice
+        [53480] = { cd = 60, enabledDefault = true, types = { class = true } }, -- Roar of Sacrifice
         [60192] = { cd = 28, enabledDefault = true, types = { class = true } }, -- Freezing Arrow
         [63672] = { cd = 22, enabledDefault = false, types = { class = true } }, -- Black Arrow
     },
     ROGUE = {
         [1766] = { cd = 10, enabledDefault = true, types = { class = true } }, -- Kick
         [1776] = { cd = 10, enabledDefault = true, types = { class = true } }, -- Gouge
-        [1856] = { cd = 120, enabledDefault = false, types = { class = true } }, -- Vanish
+        [1856] = { cd = 120, enabledDefault = true, types = { class = true } }, -- Vanish
         [2094] = { cd = 120, enabledDefault = true, types = { class = true } }, -- Blind
-        [5277] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Evasion
+        [5277] = { cd = 180, enabledDefault = true, types = { class = true } }, -- Evasion
         [8643] = { cd = 20, enabledDefault = true, types = { class = true } }, -- Kidney Shot
         [11305] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Sprint
         [13750] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Adrenaline Rush
         [13877] = { cd = 120, enabledDefault = false, types = { class = true } }, -- Blade Flurry
         [14177] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Cold Blood
-        [14185] = { cd = 300, enabledDefault = false, types = { class = true } }, -- Preparation
+        [14185] = { cd = 300, enabledDefault = true, types = { class = true } }, -- Preparation
         [14278] = { cd = 20, enabledDefault = false, types = { class = true } }, -- Ghostly Strike
         [31224] = { cd = 60, enabledDefault = true, types = { class = true } }, -- Cloak of Shadows
-        [36554] = { cd = 20, enabledDefault = false, types = { class = true } }, -- Shadowstep
+        [36554] = { cd = 20, enabledDefault = true, types = { class = true } }, -- Shadowstep
         [48659] = { cd = 10, enabledDefault = false, types = { class = true } }, -- Feint
         [51690] = { cd = 75, enabledDefault = false, types = { class = true } }, -- Killing Spree
         [51713] = { cd = 60, enabledDefault = false, types = { class = true } }, -- Shadow Dance
-        [51722] = { cd = 60, enabledDefault = false, types = { class = true } }, -- Dismantle
+        [51722] = { cd = 60, enabledDefault = true, types = { class = true } }, -- Dismantle
         [57934] = { cd = 30, enabledDefault = false, types = { class = true } }, -- Tricks of the Trade
     },
     PRIEST = {
@@ -155,7 +155,7 @@ IcicleData.DEFAULT_SPELLS_BY_CATEGORY = {
         [47788] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Guardian Spirit
         [48086] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Lightwell
         [48158] = { cd = 12, enabledDefault = false, types = { class = true } }, -- Shadow Word: Death
-        [48173] = { cd = 120, enabledDefault = false, types = { class = true } }, -- Desperate Prayer
+        [48173] = { cd = 120, enabledDefault = true, types = { class = true } }, -- Desperate Prayer
         [53007] = { cd = 8, enabledDefault = false, types = { class = true } }, -- Penance
         [64044] = { cd = 120, enabledDefault = true, types = { class = true } }, -- Psychic Horror
         [64843] = { cd = 480, enabledDefault = false, types = { class = true } }, -- Divine Hymn
@@ -170,30 +170,30 @@ IcicleData.DEFAULT_SPELLS_BY_CATEGORY = {
         [47528] = { cd = 10, enabledDefault = true, types = { class = true } }, -- Mind Freeze
         [47568] = { cd = 300, enabledDefault = false, types = { class = true } }, -- Empower Rune Weapon
         [48707] = { cd = 45, enabledDefault = true, types = { class = true } }, -- Anti-Magic Shell
-        [48743] = { cd = 120, enabledDefault = false, types = { class = true } }, -- Death Pact
+        [48743] = { cd = 120, enabledDefault = true, types = { class = true } }, -- Death Pact
         [48792] = { cd = 120, enabledDefault = true, types = { class = true } }, -- Icebound Fortitude
         [48982] = { cd = 30, enabledDefault = false, types = { class = true } }, -- Rune Tap
-        [49005] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Mark of Blood
+        [49005] = { cd = 180, enabledDefault = true, types = { class = true } }, -- Mark of Blood
         [49016] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Hysteria
         [49028] = { cd = 60, enabledDefault = false, types = { class = true } }, -- Dancing Rune Weapon
-        [49039] = { cd = 120, enabledDefault = false, types = { class = true } }, -- Lichborne
+        [49039] = { cd = 120, enabledDefault = true, types = { class = true } }, -- Lichborne
         [49203] = { cd = 60, enabledDefault = true, types = { class = true } }, -- Hungering Cold
         [49206] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Summon Gargoyle
-        [49222] = { cd = 60, enabledDefault = false, types = { class = true } }, -- Bone Shield
-        [49576] = { cd = 25, enabledDefault = false, types = { class = true } }, -- Death Grip
+        [49222] = { cd = 60, enabledDefault = true, types = { class = true } }, -- Bone Shield
+        [49576] = { cd = 25, enabledDefault = true, types = { class = true } }, -- Death Grip
         [49796] = { cd = 120, enabledDefault = false, types = { class = true } }, -- Deathchill
         [49916] = { cd = 120, enabledDefault = true, types = { class = true } }, -- Strangulate
         [51052] = { cd = 120, enabledDefault = true, types = { class = true } }, -- Anti-Magic Zone
         [51271] = { cd = 60, enabledDefault = true, types = { class = true } }, -- Unbreakable Armor
         [51411] = { cd = 8, enabledDefault = false, types = { class = true } }, -- Howling Blast
-        [55233] = { cd = 60, enabledDefault = false, types = { class = true } }, -- Vampiric Blood
+        [55233] = { cd = 60, enabledDefault = true, types = { class = true } }, -- Vampiric Blood
     },
     SHAMAN = {
-        [2484] = { cd = 10.5, enabledDefault = false, types = { class = true } }, -- Earthbind Totem
+        [2484] = { cd = 10.5, enabledDefault = true, types = { class = true } }, -- Earthbind Totem
         [2825] = { cd = 300, enabledDefault = false, types = { class = true } }, -- Bloodlust
         [8177] = { cd = 13.5, enabledDefault = false, types = { class = true } }, -- Grounding Totem
         [16166] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Elemental Mastery
-        [16188] = { cd = 120, enabledDefault = false, types = { class = true } }, -- Nature's Swiftness
+        [16188] = { cd = 120, enabledDefault = true, types = { class = true } }, -- Nature's Swiftness
         [16190] = { cd = 300, enabledDefault = false, types = { class = true } }, -- Mana Tide Totem
         [17364] = { cd = 8, enabledDefault = false, types = { class = true } }, -- Stormstrike
         [20608] = { cd = 1800, enabledDefault = false, types = { class = true } }, -- Reincarnation
@@ -205,7 +205,7 @@ IcicleData.DEFAULT_SPELLS_BY_CATEGORY = {
         [55198] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Tidal Force
         [57994] = { cd = 5, enabledDefault = true, types = { class = true } }, -- Wind Shear
         [58582] = { cd = 21, enabledDefault = false, types = { class = true } }, -- Stoneclaw Totem
-        [59159] = { cd = 35, enabledDefault = false, types = { class = true } }, -- Thunderstorm
+        [59159] = { cd = 35, enabledDefault = true, types = { class = true } }, -- Thunderstorm
         [60043] = { cd = 8, enabledDefault = false, types = { class = true } }, -- Lava Burst
         [60103] = { cd = 6, enabledDefault = false, types = { class = true } }, -- Lava Lash
         [61301] = { cd = 6, enabledDefault = false, types = { class = true } }, -- Riptide
@@ -213,9 +213,9 @@ IcicleData.DEFAULT_SPELLS_BY_CATEGORY = {
     },
     MAGE = {
         [66] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Invisibility
-        [1953] = { cd = 15, enabledDefault = false, types = { class = true } }, -- Blink
+        [1953] = { cd = 15, enabledDefault = true, types = { class = true } }, -- Blink
         [2139] = { cd = 24, enabledDefault = true, types = { class = true } }, -- Counterspell
-        [11958] = { cd = 384, enabledDefault = false, types = { class = true } }, -- Cold Snap
+        [11958] = { cd = 384, enabledDefault = true, types = { class = true } }, -- Cold Snap
         [12042] = { cd = 84, enabledDefault = false, types = { class = true } }, -- Arcane Power
         [12043] = { cd = 84, enabledDefault = false, types = { class = true } }, -- Presence of Mind
         [12051] = { cd = 240, enabledDefault = false, types = { class = true } }, -- Evocation
@@ -240,13 +240,13 @@ IcicleData.DEFAULT_SPELLS_BY_CATEGORY = {
         [18708] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Fel Domination
         [19647] = { cd = 24, enabledDefault = true, types = { class = true } }, -- Spell Lock
         [47193] = { cd = 60, enabledDefault = false, types = { class = true } }, -- Demonic Empowerment
-        [47241] = { cd = 126, enabledDefault = false, types = { class = true } }, -- Metamorphosis
+        [47241] = { cd = 126, enabledDefault = true, types = { class = true } }, -- Metamorphosis
         [47827] = { cd = 15, enabledDefault = false, types = { class = true } }, -- Shadowburn
         [47847] = { cd = 20, enabledDefault = true, types = { class = true } }, -- Shadowfury
         [47860] = { cd = 120, enabledDefault = true, types = { class = true } }, -- Death Coil
         [47891] = { cd = 30, enabledDefault = false, types = { class = true } }, -- Shadow Ward
         [48011] = { cd = 8, enabledDefault = false, types = { class = true } }, -- Devour Magic
-        [48020] = { cd = 30, enabledDefault = false, types = { class = true } }, -- Demonic Circle: Teleport
+        [48020] = { cd = 30, enabledDefault = true, types = { class = true } }, -- Demonic Circle: Teleport
         [59164] = { cd = 8, enabledDefault = false, types = { class = true } }, -- Haunt
         [59172] = { cd = 12, enabledDefault = false, types = { class = true } }, -- Chaos Bolt
         [61290] = { cd = 15, enabledDefault = false, types = { class = true } }, -- Shadowflame
@@ -256,11 +256,11 @@ IcicleData.DEFAULT_SPELLS_BY_CATEGORY = {
         [5229] = { cd = 60, enabledDefault = false, types = { class = true } }, -- Enrage
         [6795] = { cd = 8, enabledDefault = false, types = { class = true } }, -- Growl
         [8983] = { cd = 30, enabledDefault = true, types = { class = true } }, -- Bash
-        [16979] = { cd = 15, enabledDefault = false, types = { class = true } }, -- Feral Charge - Bear
-        [17116] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Nature's Swiftness
-        [18562] = { cd = 13, enabledDefault = false, types = { class = true } }, -- Swiftmend
-        [22812] = { cd = 60, enabledDefault = false, types = { class = true } }, -- Barkskin
-        [22842] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Frenzied Regeneration
+        [16979] = { cd = 15, enabledDefault = true, types = { class = true } }, -- Feral Charge - Bear
+        [17116] = { cd = 180, enabledDefault = true, types = { class = true } }, -- Nature's Swiftness
+        [18562] = { cd = 13, enabledDefault = true, types = { class = true } }, -- Swiftmend
+        [22812] = { cd = 60, enabledDefault = true, types = { class = true } }, -- Barkskin
+        [22842] = { cd = 180, enabledDefault = true, types = { class = true } }, -- Frenzied Regeneration
         [29166] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Innervate
         [33357] = { cd = 144, enabledDefault = false, types = { class = true } }, -- Dash
         [33831] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Force of Nature
@@ -269,10 +269,10 @@ IcicleData.DEFAULT_SPELLS_BY_CATEGORY = {
         [49376] = { cd = 15, enabledDefault = false, types = { class = true } }, -- Feral Charge - Cat
         [49802] = { cd = 10, enabledDefault = true, types = { class = true } }, -- Maim
         [50213] = { cd = 30, enabledDefault = false, types = { class = true } }, -- Tiger's Fury
-        [50334] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Berserk
+        [50334] = { cd = 180, enabledDefault = true, types = { class = true } }, -- Berserk
         [53201] = { cd = 60, enabledDefault = false, types = { class = true } }, -- Starfall
-        [53312] = { cd = 60, enabledDefault = false, types = { class = true } }, -- Nature's Grasp
-        [61336] = { cd = 180, enabledDefault = false, types = { class = true } }, -- Survival Instincts
+        [53312] = { cd = 60, enabledDefault = true, types = { class = true } }, -- Nature's Grasp
+        [61336] = { cd = 180, enabledDefault = true, types = { class = true } }, -- Survival Instincts
         [61384] = { cd = 20, enabledDefault = false, types = { class = true } }, -- Typhoon
     },
 }
@@ -280,7 +280,6 @@ IcicleData.DEFAULT_SPELL_DATA = {}
 IcicleData.BASE_COOLDOWNS = {}
 IcicleData.DEFAULT_ITEM_IDS = {}
 IcicleData.DEFAULT_ENABLED_SPELL_IDS = {}
-IcicleData.DEFAULT_SPELL_TYPES = {}
 
 for categoryKey, spellMap in pairs(IcicleData.DEFAULT_SPELLS_BY_CATEGORY) do
     for spellID, entry in pairs(spellMap) do
@@ -318,7 +317,6 @@ for categoryKey, spellMap in pairs(IcicleData.DEFAULT_SPELLS_BY_CATEGORY) do
         if cd then
             IcicleData.DEFAULT_SPELL_DATA[spellID] = { cd = cd, category = categoryKey, types = types, enabledDefault = enabledDefault }
             IcicleData.BASE_COOLDOWNS[spellID] = cd
-            IcicleData.DEFAULT_SPELL_TYPES[spellID] = types
             if enabledDefault then
                 IcicleData.DEFAULT_ENABLED_SPELL_IDS[spellID] = true
             end
@@ -328,27 +326,4 @@ for categoryKey, spellMap in pairs(IcicleData.DEFAULT_SPELLS_BY_CATEGORY) do
         end
     end
 end
-
--- Readable helper for development/debug: builds name hints from client spell data when available.
-IcicleData.DEFAULT_SPELLS_READABLE = {}
-for spellID, data in pairs(IcicleData.DEFAULT_SPELL_DATA) do
-    local spellName = GetSpellInfo(spellID)
-    IcicleData.DEFAULT_SPELLS_READABLE[#IcicleData.DEFAULT_SPELLS_READABLE + 1] = {
-        id = spellID,
-        name = spellName or ("Spell " .. tostring(spellID)),
-        category = data.category,
-        cd = data.cd,
-        enabledDefault = data.enabledDefault and true or false,
-        types = data.types,
-    }
-end
-table.sort(IcicleData.DEFAULT_SPELLS_READABLE, function(a, b)
-    if a.category == b.category then
-        if a.name == b.name then
-            return a.id < b.id
-        end
-        return a.name < b.name
-    end
-    return a.category < b.category
-end)
 

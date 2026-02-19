@@ -21,7 +21,6 @@ src\modules\IcicleResolver.lua
 src\modules\IcicleRender.lua
 src\modules\IcicleTestMode.lua
 src\modules\IcicleSpells.lua
-src\core\IcicleDebug.lua
 src\modules\IcicleSpec.lua
 src\core\IcicleState.lua
 src\modules\IcicleEvents.lua

@@ -39,7 +39,6 @@ IcicleDefaults = {
     minTrackedCooldown = 0,
     maxTrackedCooldown = 0,
 
-    debug = false,
     persistSpecHints = false,
     specDetectEnabled = true,
     specHintTTL = 300,

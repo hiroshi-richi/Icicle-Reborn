@@ -23,17 +23,7 @@ local function FormatCooldownText(seconds)
     return format("%.1fs", seconds)
 end
 
-function IcicleTooltip.GetSpellOrItemInfo(spellID, isItem)
-    if isItem then
-        local itemName, _, _, _, _, _, _, _, _, itemTexture = GetItemInfo(spellID)
-        return itemName, itemTexture or GetItemIcon(spellID)
-    end
-    local spellName, _, spellTexture = GetSpellInfo(spellID)
-    return spellName, spellTexture
-end
-
-function IcicleTooltip.GetSpellDescSafe(spellID, isItem)
-    if not spellID then return "No description available." end
+local function ScanTooltipDescriptionRaw(spellID, isItem)
     local cacheKey = (isItem and "item:" or "spell:") .. tostring(spellID)
     if spellTooltipCache[cacheKey] then return spellTooltipCache[cacheKey] end
 
@@ -86,6 +76,20 @@ function IcicleTooltip.GetSpellDescSafe(spellID, isItem)
     spellTooltip:Hide()
     spellTooltipCache[cacheKey] = desc
     return desc
+end
+
+function IcicleTooltip.GetSpellOrItemInfo(spellID, isItem)
+    if isItem then
+        local itemName, _, _, _, _, _, _, _, _, itemTexture = GetItemInfo(spellID)
+        return itemName, itemTexture or GetItemIcon(spellID)
+    end
+    local spellName, _, spellTexture = GetSpellInfo(spellID)
+    return spellName, spellTexture
+end
+
+function IcicleTooltip.GetSpellDescSafe(spellID, isItem)
+    if not spellID then return "No description available." end
+    return ScanTooltipDescriptionRaw(spellID, isItem)
 end
 
 function IcicleTooltip.BuildSpellTooltipText(spellID, spellName, iconTex, cooldownSeconds, isItem)

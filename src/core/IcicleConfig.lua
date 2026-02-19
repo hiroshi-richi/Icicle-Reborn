@@ -1,8 +1,5 @@
 IcicleConfig = IcicleConfig or {}
 
-local max, min = math.max, math.min
-local strlower, strupper = string.lower, string.upper
-
 local CATEGORY_BORDER_DEFAULTS = {
     GENERAL = { r = 0.62, g = 0.62, b = 0.62, a = 1.00 },
     WARRIOR = { r = 0.78, g = 0.61, b = 0.43, a = 1.00 },
@@ -128,41 +125,3 @@ function IcicleConfig.NormalizeProfile(db, baseCooldowns)
         ApplyDefaultEnabledPreset(db, baseCooldowns)
     end
 end
-
-function IcicleConfig.SetConfigValue(db, key, value, validPoints, validGrow)
-    key = strlower(key)
-    if key == "anchor" then
-        value = strupper(value)
-        if not validPoints[value] then return false, "invalid anchor point" end
-        db.anchorPoint = value
-    elseif key == "anchorto" then
-        value = strupper(value)
-        if not validPoints[value] then return false, "invalid anchor target point" end
-        db.anchorTo = value
-    elseif key == "x" then
-        db.xOffset = tonumber(value) or db.xOffset
-    elseif key == "y" then
-        db.yOffset = tonumber(value) or db.yOffset
-    elseif key == "size" then
-        db.iconSize = max(10, min(64, tonumber(value) or db.iconSize))
-    elseif key == "font" then
-        db.fontSize = max(6, min(30, tonumber(value) or db.fontSize))
-    elseif key == "maxrow" then
-        db.maxIconsPerRow = max(1, min(20, tonumber(value) or db.maxIconsPerRow))
-    elseif key == "maxicons" then
-        db.maxIcons = max(1, min(40, tonumber(value) or db.maxIcons))
-    elseif key == "grow" then
-        value = strupper(value)
-        if not validGrow[value] then return false, "invalid growth direction" end
-        db.growthDirection = value
-    elseif key == "spacing" then
-        db.iconSpacing = max(0, min(20, tonumber(value) or db.iconSpacing))
-    elseif key == "scan" then
-        db.scanInterval = max(0.1, min(0.5, tonumber(value) or db.scanInterval))
-    else
-        return false, "unknown key"
-    end
-
-    return true
-end
-

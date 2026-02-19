@@ -28,8 +28,3 @@ function IcicleOptions.RegisterPanels(ctx)
     end
 
 end
-
-function IcicleOptions.OpenPanel(panelName)
-    InterfaceOptionsFrame_OpenToCategory(panelName)
-    InterfaceOptionsFrame_OpenToCategory(panelName)
-end

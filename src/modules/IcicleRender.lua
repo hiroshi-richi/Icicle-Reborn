@@ -306,7 +306,6 @@ function IcicleRender.RefreshAllVisiblePlates(ctx)
             if meta then IcicleRender.RenderPlate(ctx, meta) end
         end
     end
-    ctx.STATE.stats.refreshCount = ctx.STATE.stats.refreshCount + 1
 end
 
 function IcicleRender.OnUpdate(ctx, elapsed)

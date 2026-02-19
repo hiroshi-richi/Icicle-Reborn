@@ -2,10 +2,9 @@ local ADDON_NAME = "Icicle"
 
 local floor, ceil = math.floor, math.ceil
 local max, min = math.max, math.min
-local abs, pow = math.abs, math.pow
+local pow = math.pow
 local tinsert, tremove = table.insert, table.remove
-local bit_band = bit.band
-local strmatch, strfind = string.match, string.find
+local strmatch = string.match
 local strlower, strupper = string.lower, string.upper
 local format = string.format
 
@@ -14,7 +13,6 @@ local db
 local aceDB
 local optionsBuilt = false
 local profileCallbacks = {}
-local editState = { spellID = "", cooldown = "", trigger = "SUCCESS" }
 local GetSpellDescSafe
 
 local AceConfig = LibStub("AceConfig-3.0", true)
@@ -48,7 +46,6 @@ local ConfigModule = RequireTable("IcicleConfig", IcicleConfig)
 local CooldownRulesModule = RequireTable("IcicleCooldownRules", IcicleCooldownRules)
 local TestModeModule = RequireTable("IcicleTestMode", IcicleTestMode)
 local SpellsModule = RequireTable("IcicleSpells", IcicleSpells)
-local DebugModule = RequireTable("IcicleDebug", IcicleDebug)
 local SpecModule = RequireTable("IcicleSpec", IcicleSpec)
 local StateModule = RequireTable("IcicleState", IcicleState)
 local EventsModule = RequireTable("IcicleEvents", IcicleEvents)
@@ -57,7 +54,6 @@ local BootstrapModule = RequireTable("IcicleBootstrap", IcicleBootstrap)
 local DataModule = RequireTable("IcicleData", IcicleData)
 
 RequireFunction("IcicleOptions", OptionsModule, "RegisterPanels")
-RequireFunction("IcicleOptions", OptionsModule, "OpenPanel")
 RequireFunction("IcicleTooltip", TooltipModule, "GetSpellOrItemInfo")
 RequireFunction("IcicleTooltip", TooltipModule, "BuildSpellTooltipText")
 RequireFunction("IcicleTooltip", TooltipModule, "BuildSpellPanelDesc")
@@ -67,31 +63,24 @@ RequireFunction("IcicleNameplates", NameplatesModule, "FindBars")
 RequireFunction("IcicleNameplates", NameplatesModule, "FindFontStringNameRegion")
 RequireFunction("IcicleNameplates", NameplatesModule, "ScanNameplates")
 RequireFunction("IcicleResolver", ResolverModule, "RemovePlateBinding")
-RequireFunction("IcicleResolver", ResolverModule, "RemoveGUIDBinding")
-RequireFunction("IcicleResolver", ResolverModule, "SetBinding")
 RequireFunction("IcicleResolver", ResolverModule, "DecayAndPurgeMappings")
 RequireFunction("IcicleResolver", ResolverModule, "MigrateNameCooldownsToGUID")
-RequireFunction("IcicleResolver", ResolverModule, "RegisterCandidate")
 RequireFunction("IcicleResolver", ResolverModule, "TryBindByName")
 RequireFunction("IcicleResolver", ResolverModule, "RegisterPendingBind")
 RequireFunction("IcicleResolver", ResolverModule, "TryResolvePendingBinds")
 RequireFunction("IcicleResolver", ResolverModule, "ResolveUnit")
 RequireFunction("IcicleResolver", ResolverModule, "ResolveGroupTargets")
-RequireFunction("IcicleRender", RenderModule, "CollectDisplayRecords")
-RequireFunction("IcicleRender", RenderModule, "RenderPlate")
 RequireFunction("IcicleRender", RenderModule, "RefreshAllVisiblePlates")
 RequireFunction("IcicleRender", RenderModule, "OnUpdate")
 RequireFunction("IcicleConfig", ConfigModule, "CopyDefaults")
 RequireFunction("IcicleConfig", ConfigModule, "NormalizeProfile")
 RequireFunction("IcicleCooldownRules", CooldownRulesModule, "GetSpellConfig")
-RequireFunction("IcicleCooldownRules", CooldownRulesModule, "DescribeSpellRule")
 RequireFunction("IcicleTestMode", TestModeModule, "PopulateRandomPlateTests")
 RequireFunction("IcicleTestMode", TestModeModule, "RandomizeTestMode")
 RequireFunction("IcicleTestMode", TestModeModule, "StopTestMode")
 RequireFunction("IcicleTestMode", TestModeModule, "StartTestMode")
 RequireFunction("IcicleTestMode", TestModeModule, "ToggleTestMode")
 RequireFunction("IcicleSpells", SpellsModule, "BuildSpellRowsData")
-RequireFunction("IcicleDebug", DebugModule, "DebugLog")
 RequireFunction("IcicleSpec", SpecModule, "PruneExpiredHints")
 RequireFunction("IcicleSpec", SpecModule, "UpdateFromInspectTalents")
 RequireFunction("IcicleState", StateModule, "BuildInitialState")
@@ -384,21 +373,6 @@ local function ResolveSpellIDByName(spellName, spellRank, classToken)
     return best and best.id or nil
 end
 
-local DEBUG_CONTEXT = {
-    STATE = STATE,
-    db = nil,
-    Print = Print,
-}
-
-local function SyncDebugContext()
-    DEBUG_CONTEXT.db = db
-end
-
-local function DebugLog(msg)
-    SyncDebugContext()
-    return DebugModule.DebugLog(DEBUG_CONTEXT, msg)
-end
-
 local function IsEnabledInCurrentZone()
     if not db then return false end
     local _, zoneType = IsInInstance()
@@ -653,7 +627,6 @@ end
 local RESOLVER_CONTEXT = {
     STATE = STATE,
     db = nil,
-    DebugLog = DebugLog,
     DecayedConfidence = DecayedConfidence,
     ShortName = ShortName,
     ClassTokenToCategory = ClassTokenToCategory,
@@ -668,16 +641,6 @@ local function RemovePlateBinding(plate)
     return ResolverModule.RemovePlateBinding(RESOLVER_CONTEXT, plate)
 end
 
-local function RemoveGUIDBinding(guid)
-    SyncResolverContext()
-    return ResolverModule.RemoveGUIDBinding(RESOLVER_CONTEXT, guid)
-end
-
-local function SetBinding(guid, plate, conf, reason, sourceName)
-    SyncResolverContext()
-    return ResolverModule.SetBinding(RESOLVER_CONTEXT, guid, plate, conf, reason, sourceName)
-end
-
 local function DecayAndPurgeMappings()
     SyncResolverContext()
     return ResolverModule.DecayAndPurgeMappings(RESOLVER_CONTEXT)
@@ -686,11 +649,6 @@ end
 local function MigrateNameCooldownsToGUID(name, guid)
     SyncResolverContext()
     return ResolverModule.MigrateNameCooldownsToGUID(RESOLVER_CONTEXT, name, guid)
-end
-
-local function RegisterCandidate(name, guid)
-    SyncResolverContext()
-    return ResolverModule.RegisterCandidate(RESOLVER_CONTEXT, name, guid)
 end
 
 local function TryBindByName(guid, name, baseConf, reason, spellName, eventTime)
@@ -727,16 +685,6 @@ local RENDER_CONTEXT = {
 
 local function SyncRenderContext()
     RENDER_CONTEXT.db = db
-end
-
-local function CollectDisplayRecords(meta)
-    SyncRenderContext()
-    return RenderModule.CollectDisplayRecords(RENDER_CONTEXT, meta)
-end
-
-local function RenderPlate(meta)
-    SyncRenderContext()
-    return RenderModule.RenderPlate(RENDER_CONTEXT, meta)
 end
 
 local function RefreshAllVisiblePlates()
@@ -790,7 +738,6 @@ local NAMEPLATES_CONTEXT = {
     TryResolvePendingBinds = TryResolvePendingBinds,
     ShortName = ShortName,
     GetTime = GetTime,
-    debugprofilestop = debugprofilestop,
     WorldFrame = WorldFrame,
 }
 
@@ -826,7 +773,6 @@ local TRACKING_CONTEXT = {
     RegisterPendingBind = RegisterPendingBind,
     MigrateNameCooldownsToGUID = MigrateNameCooldownsToGUID,
     RefreshAllVisiblePlates = RefreshAllVisiblePlates,
-    DebugLog = DebugLog,
     IsItemSpell = IsItemSpell,
     SpellCategory = SpellCategory,
     GetSourceClassCategory = GetSourceClassCategory,
@@ -853,21 +799,6 @@ local function NormalizeTrigger(trigger)
         return trigger
     end
     return "SUCCESS"
-end
-
-local function DebugSpellRule(idText)
-    local sid = tonumber(idText)
-    if not sid then
-        Print("usage: rule <spellID>")
-        return
-    end
-    SyncCooldownRulesContext()
-    Print(CooldownRulesModule.DescribeSpellRule(COOLDOWN_RULES_CONTEXT, sid))
-end
-
-local function DescribeSpellRuleByID(spellID, sourceGUID, sourceName)
-    SyncCooldownRulesContext()
-    return CooldownRulesModule.DescribeSpellRule(COOLDOWN_RULES_CONTEXT, spellID, sourceGUID, sourceName)
 end
 
 local SPEC_CONTEXT = {
@@ -911,7 +842,9 @@ end
 
 local ToggleTestMode
 local BuildOptionsPanel
-local OpenOptionsPanel
+local NotifySpellsChanged
+local GetBaseSpellEntry
+local ProcessInspectQueue
 local TESTMODE_CONTEXT = {
     STATE = STATE,
     baseCooldowns = BASE_COOLDOWNS,
@@ -1000,7 +933,6 @@ local function RebuildInternalAPI()
         ScanNameplates = ScanNameplates,
         GetCooldownRule = GetSpellConfig,
         GetSpellConfig = GetSpellConfig,
-        DebugSpellRule = DebugSpellRule,
         BuildSpellRowsData = BuildSpellRowsData,
         NotifySpellsChanged = NotifySpellsChanged,
     })
@@ -1012,32 +944,6 @@ GetBaseSpellEntry = function(spellID)
     local base = DEFAULT_SPELL_DATA and DEFAULT_SPELL_DATA[spellID]
     if not base then return nil end
     return { cd = base.cd, trigger = "SUCCESS" }
-end
-
-local function SyncEditStateFromSpellID(spellID)
-    if not spellID then
-        editState.name = nil
-        editState.icon = nil
-        editState.baseKnown = nil
-        return
-    end
-
-    local name, _, icon = GetSpellInfo(spellID)
-    editState.name = name or ("Unknown Spell (" .. tostring(spellID) .. ")")
-    editState.icon = icon or "Interface\\Icons\\INV_Misc_QuestionMark"
-
-    local base = GetBaseSpellEntry(spellID)
-    if base then
-        editState.baseKnown = true
-        editState.cooldown = tostring(base.cd)
-        editState.trigger = NormalizeTrigger(base.trigger)
-    else
-        editState.baseKnown = false
-        editState.cooldown = ""
-        if not editState.trigger or editState.trigger == "" then
-            editState.trigger = "SUCCESS"
-        end
-    end
 end
 
 local function BuildSpellRowName(row)
@@ -1068,7 +974,6 @@ end
 BuildOptionsPanel = function()
     return UIOptionsModule.BuildOptionsPanel({
         STATE = STATE,
-        editState = editState,
         AceConfig = AceConfig,
         AceConfigDialog = AceConfigDialog,
         AceDBOptions = AceDBOptions,
@@ -1097,18 +1002,11 @@ BuildOptionsPanel = function()
         BuildSpellPanelDesc = BuildSpellPanelDesc,
         NotifySpellsChanged = NotifySpellsChanged,
         GetBaseSpellEntry = GetBaseSpellEntry,
-        SyncEditStateFromSpellID = SyncEditStateFromSpellID,
         ResetAllCooldowns = ResetAllCooldowns,
-        DescribeSpellRule = DescribeSpellRuleByID,
     })
 end
 
-OpenOptionsPanel = function()
-    OptionsModule.OpenPanel("Icicle")
-end
-
 local function OnUpdate(_, elapsed)
-    local startedMs = debugprofilestop and debugprofilestop() or nil
     if db then
         SyncSpecContext()
         STATE.specAccum = (STATE.specAccum or 0) + elapsed
@@ -1128,14 +1026,7 @@ local function OnUpdate(_, elapsed)
     RENDER_CONTEXT.ScanNameplates = ScanNameplates
     RENDER_CONTEXT.ResolveGroupTargets = ResolveGroupTargets
     RENDER_CONTEXT.PopulateRandomPlateTests = PopulateRandomPlateTests
-    local result = RenderModule.OnUpdate(RENDER_CONTEXT, elapsed)
-    if STATE and STATE.stats then
-        STATE.stats.onUpdateCount = (STATE.stats.onUpdateCount or 0) + 1
-        if startedMs and debugprofilestop then
-            STATE.stats.onUpdateTotalMs = (STATE.stats.onUpdateTotalMs or 0) + (debugprofilestop() - startedMs)
-        end
-    end
-    return result
+    return RenderModule.OnUpdate(RENDER_CONTEXT, elapsed)
 end
 
 local function HandleUnitSignal(unit, confidence, reason)

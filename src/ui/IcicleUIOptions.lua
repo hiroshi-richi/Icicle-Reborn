@@ -145,10 +145,9 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
             classCategoryFilterEnabled = { type = "toggle", order = 3.4, name = L("general.class_filter", "Filter by spell class/category"), desc = "Prevents class-category spells (Warrior, Druid, etc.) from being assigned to units with a conflicting detected class." },
             showOutOfRangeInspectMessages = { type = "toggle", order = 3.5, name = L("general.show_out_of_range_inspect", "Show out-of-range inspect warnings"), desc = "Prints a message when inspect-based spec detection cannot complete due to range." },
             showAmbiguousByName = { type = "toggle", order = 3.6, name = "Show ambiguous icon", desc = "Show '?' icon for ambiguity unit (target/focus/mouseover the unit to detect cooldowns)" },
-            debug = { type = "toggle", order = 3.7, name = "Debug mode", desc = "Enables additional debug output for troubleshooting." },
             testMode = {
                 type = "toggle",
-                order = 3.8,
+                order = 3.7,
                 name = "Test mode",
                 desc = "Enable or disable synthetic cooldown icons on visible nameplates for UI testing.",
                 get = function()
@@ -161,7 +160,7 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
                     end
                 end,
             },
-            sep2 = { type = "description", order = 3.9, name = " ", width = "full" },
+            sep2 = { type = "description", order = 3.8, name = " ", width = "full" },
 
             performanceHeader = { type = "header", order = 4, name = "Performance" },
             scanInterval = { type = "range", order = 4.1, name = "Scan interval", desc = "How often nameplates are scanned for updates.", min = 0.10, max = 0.50, step = 0.01 },
@@ -325,8 +324,6 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
             end
         end
 
-        ctx.editState.spellID = tostring(sid)
-        ctx.SyncEditStateFromSpellID(sid)
         ctx.NotifySpellsChanged()
         if ctx.AceConfigDialog then
             ctx.AceConfigDialog:SelectGroup("IcicleSpells", categoryKey, "spell_" .. tostring(sid))
@@ -343,7 +340,22 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
                 desc = "Filters visible spells in the left tree by spell name.",
                 get = function() return spellSearchText or "" end,
                 set = function(_, val)
+                    local prevSearch = strlower(spellSearchText or "")
                     spellSearchText = val or ""
+                    local nextSearch = strlower(spellSearchText or "")
+                    if prevSearch ~= "" and nextSearch == "" and ctx.AceConfigDialog and ctx.AceConfigDialog.GetStatusTable then
+                        local status = ctx.AceConfigDialog:GetStatusTable("IcicleSpells")
+                        if type(status) == "table" then
+                            status.groups = status.groups or {}
+                            status.groups.groups = {}
+                            local firstCategoryKey = ctx.SPELL_CATEGORY_ORDER and ctx.SPELL_CATEGORY_ORDER[1]
+                            if firstCategoryKey then
+                                status.groups.selected = firstCategoryKey
+                            else
+                                status.groups.selected = nil
+                            end
+                        end
+                    end
                     ctx.NotifySpellsChanged()
                 end,
             },
@@ -641,8 +653,6 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
                                     db.spellOverrides[newSid].trigger = db.spellOverrides[newSid].trigger or prev.trigger or curr.trigger or "SUCCESS"
                                     db.spellCategories[newSid] = row.categoryKey
                                     RemoveEntry(sid, row.fromBase)
-                                    ctx.editState.spellID = tostring(newSid)
-                                    ctx.SyncEditStateFromSpellID(newSid)
                                     ctx.NotifySpellsChanged()
                                     if ctx.AceConfigDialog then
                                         ctx.AceConfigDialog:SelectGroup("IcicleSpells", row.categoryKey, "spell_" .. tostring(newSid))

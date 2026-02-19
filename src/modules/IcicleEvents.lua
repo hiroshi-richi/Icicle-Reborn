@@ -34,8 +34,6 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
         ctx.SyncSpecHintsFromDB()
         ctx.RebuildInternalAPI()
 
-        ctx.STATE.stats.startTime = GetTime()
-
         ctx.addon:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
         ctx.addon:RegisterEvent("PLAYER_ENTERING_WORLD")
         ctx.addon:RegisterEvent("PLAYER_TARGET_CHANGED")

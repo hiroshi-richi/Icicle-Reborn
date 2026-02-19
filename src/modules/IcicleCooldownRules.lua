@@ -4,15 +4,15 @@ IcicleCooldownRules = IcicleCooldownRules or {}
 
 local SHARED_COOLDOWNS = {
     -- PvP trinkets/racials
-    [51377] = {
+    [51378] = {
         [7744] = { sharedDuration = 45 },   -- Will of the Forsaken
         [59752] = { sharedDuration = 120 }, -- Every Man for Himself
     },
     [59752] = {
-        [51377] = { sharedDuration = 120 },
+        [51378] = { sharedDuration = 120 },
     },
     [7744] = {
-        [51377] = { sharedDuration = 45 },
+        [51378] = { sharedDuration = 45 },
     },
 
     -- Druid
@@ -108,10 +108,19 @@ local RESET_COOLDOWNS = {
     },
 }
 
-local EXPECTED_SHARED_EDGE_COUNT = 29
-local EXPECTED_RESET_ENTRY_COUNT = 45
-
 local ID_ALIASES = {
+    -- PvP trinket canonicalization (Alliance/Horde item IDs).
+    [18853] = 51378, -- Medallion of the Alliance (vanilla version)
+    [18863] = 51378, -- Medallion of the Horde (vanilla version)
+    [37864] = 51378, -- Medallion of the Alliance (tbc version)
+    [37865] = 51378, -- Medallion of the Horde (tbc version)
+    [42122] = 51378, -- Medallion of the Alliance (wotlk version - phase 1)
+    [42123] = 51378, -- Medallion of the Horde (wotlk version - phase 1)
+    [42124] = 51378, -- Medallion of the Alliance (wotlk version - phase 2)
+    [42126] = 51378, -- Medallion of the Horde (wotlk version - phase 2)
+    [51377] = 51378, -- Medallion of the Alliance (wotlk version - phase 4)
+    [51378] = 51378, -- Medallion of the Horde (wotlk version - phase 4)
+
     -- Spell ranks / equivalent IDs used by Icicle custom list
     [6554] = 6552, -- Pummel rank alias
     [2983] = 11305, -- Sprint rank alias
@@ -282,40 +291,6 @@ local function ResolveRawConfig(ctx, spellID, sourceGUID, sourceName)
     }
 end
 
-function IcicleCooldownRules.BuildTriggerParityReport(ctx)
-    local out = {}
-    local total, mismatches, missing = 0, 0, 0
-    local mismatchList = {}
-
-    if not ctx or type(ctx.defaultSpellData) ~= "table" then
-        return { "trigger_parity_status=FAIL", "trigger_parity_error=missing_default_data" }
-    end
-
-    for spellID in pairs(ctx.defaultSpellData) do
-        total = total + 1
-        local expected = TRIGGER_OVERRIDES[spellID] and NormalizeTrigger(TRIGGER_OVERRIDES[spellID]) or "SUCCESS"
-        local rule = ResolveRawConfig(ctx, spellID, nil, nil)
-        if not rule then
-            missing = missing + 1
-        else
-            local actual = NormalizeTrigger(rule.trigger)
-            if actual ~= expected then
-                mismatches = mismatches + 1
-                mismatchList[#mismatchList + 1] = tostring(spellID) .. ":" .. actual .. "->" .. expected
-            end
-        end
-    end
-
-    out[#out + 1] = "trigger_parity_total=" .. tostring(total)
-    out[#out + 1] = "trigger_parity_missing_rules=" .. tostring(missing)
-    out[#out + 1] = "trigger_parity_mismatches=" .. tostring(mismatches)
-    out[#out + 1] = "trigger_parity_status=" .. ((mismatches == 0) and "PASS" or "FAIL")
-    if #mismatchList > 0 then
-        out[#out + 1] = "trigger_parity_examples=" .. table.concat(mismatchList, ",")
-    end
-    return out
-end
-
 function IcicleCooldownRules.GetSpellConfig(ctx, spellID, sourceGUID, sourceName)
     return ResolveRawConfig(ctx, spellID, sourceGUID, sourceName)
 end
@@ -323,39 +298,4 @@ end
 function IcicleCooldownRules.GetSharedTargetsForSpell(_, spellID)
     spellID = NormalizeSpellID(spellID)
     return SHARED_COOLDOWNS[spellID]
-end
-
-function IcicleCooldownRules.DescribeSpellRule(ctx, spellID, sourceGUID, sourceName)
-    local rule, status = ResolveRawConfig(ctx, spellID, sourceGUID, sourceName)
-    if not rule then
-        return string.format("spell=%d status=%s", spellID, status or "missing")
-    end
-
-    local sharedCount = 0
-    if type(rule.sharedTargets) == "table" then
-        for _ in pairs(rule.sharedTargets) do
-            sharedCount = sharedCount + 1
-        end
-    end
-
-    local resetCount = 0
-    if type(rule.resetSpells) == "table" then
-        for _ in pairs(rule.resetSpells) do
-            resetCount = resetCount + 1
-        end
-    end
-
-    return string.format(
-        "spell=%d normalized=%d cd=%.1f trigger=%s source=%s override=%s item=%s sharedTargets=%d resetSpells=%d spec=%s",
-        rule.originalSpellID or spellID,
-        rule.spellID,
-        rule.cd,
-        rule.trigger,
-        rule.source or "none",
-        rule.overrideApplied and "yes" or "no",
-        rule.isItem and "yes" or "no",
-        sharedCount,
-        resetCount,
-        rule.appliedSpec or "none"
-    )
 end

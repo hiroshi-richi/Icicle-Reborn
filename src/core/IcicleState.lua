@@ -33,22 +33,6 @@ function IcicleState.BuildInitialState()
         inspectCurrent = nil,
         inspectOutOfRangeSince = {},
 
-        stats = {
-            scanCount = 0,
-            scanTotalMs = 0,
-            refreshCount = 0,
-            lastScanChildren = 0,
-            startTime = 0,
-            resolverBindAttempts = 0,
-            resolverBindSuccess = 0,
-            pendingBindQueued = 0,
-            pendingBindResolved = 0,
-            pendingBindExpired = 0,
-            pendingBindPeak = 0,
-            onUpdateCount = 0,
-            onUpdateTotalMs = 0,
-        },
-
         scanAccum = 0,
         iconAccum = 0,
         groupAccum = 0,

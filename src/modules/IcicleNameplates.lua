@@ -136,9 +136,7 @@ function IcicleNameplates.AddVisibleNamePlate(visiblePlatesByName, name, plate)
 end
 
 function IcicleNameplates.ScanNameplates(ctx)
-    local startMs = ctx.debugprofilestop and ctx.debugprofilestop() or 0
     local num = ctx.WorldFrame:GetNumChildren()
-    ctx.STATE.stats.lastScanChildren = num
 
     for i = 1, num do
         local frame = select(i, ctx.WorldFrame:GetChildren())
@@ -206,8 +204,4 @@ function IcicleNameplates.ScanNameplates(ctx)
     end
 
     ctx.DecayAndPurgeMappings()
-    ctx.STATE.stats.scanCount = ctx.STATE.stats.scanCount + 1
-    if ctx.debugprofilestop then
-        ctx.STATE.stats.scanTotalMs = ctx.STATE.stats.scanTotalMs + (ctx.debugprofilestop() - startMs)
-    end
 end
