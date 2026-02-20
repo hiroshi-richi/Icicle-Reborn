@@ -252,6 +252,9 @@ function IcicleRender.CollectDisplayRecords(ctx, meta)
 
     if meta.name then
         local byName = ctx.STATE.cooldownsByName[meta.name]
+        if (not byName) and ctx.STATE.cooldownsByNameMirror then
+            byName = ctx.STATE.cooldownsByNameMirror[meta.name]
+        end
         if byName then
             local visible = ctx.STATE.visiblePlatesByName[meta.name]
             local visibleCount = visible and visible.count or 0
@@ -405,20 +408,29 @@ function IcicleRender.OnUpdate(ctx, elapsed)
     ctx.STATE.groupAccum = ctx.STATE.groupAccum + elapsed
     ctx.STATE.testAccum = ctx.STATE.testAccum + elapsed
 
-    if ctx.STATE.scanAccum >= ctx.db.scanInterval then
+    local now = GetTime()
+    local fastScanActive = (ctx.STATE.fastScanUntil or 0) > now
+    local scanInterval = ctx.db.scanInterval
+    if fastScanActive and scanInterval > 0.05 then
+        scanInterval = 0.05
+    end
+
+    if ctx.STATE.scanAccum >= scanInterval then
         ctx.STATE.scanAccum = 0
-        local shouldScan = false
-        if (ctx.STATE.dirtyPlateCount or 0) > 0 then
-            shouldScan = true
-        elseif ctx.STATE.pendingBindByGUID and next(ctx.STATE.pendingBindByGUID) then
-            shouldScan = true
-        elseif ctx.GetWorldChildrenCount then
-            local worldCount = ctx.GetWorldChildrenCount()
-            if worldCount ~= (ctx.STATE.lastWorldChildrenCount or 0) then
+        local shouldScan = fastScanActive
+        if not shouldScan then
+            if (ctx.STATE.dirtyPlateCount or 0) > 0 then
+                shouldScan = true
+            elseif ctx.STATE.pendingBindByGUID and next(ctx.STATE.pendingBindByGUID) then
+                shouldScan = true
+            elseif ctx.GetWorldChildrenCount then
+                local worldCount = ctx.GetWorldChildrenCount()
+                if worldCount ~= (ctx.STATE.lastWorldChildrenCount or 0) then
+                    shouldScan = true
+                end
+            else
                 shouldScan = true
             end
-        else
-            shouldScan = true
         end
         if shouldScan then
             ctx.ScanNameplates()
@@ -442,7 +454,7 @@ function IcicleRender.OnUpdate(ctx, elapsed)
 
     if ctx.STATE.iconAccum >= ctx.db.iconUpdateInterval then
         ctx.STATE.iconAccum = 0
-        local now = GetTime()
+        now = GetTime()
         local changed = false
 
         if ctx.ProcessExpiryQueue then

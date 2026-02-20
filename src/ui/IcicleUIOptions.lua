@@ -38,7 +38,7 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
             howItWorksBody = {
                 type = "description",
                 order = 4,
-                name = "1. Detection: Icicle: Reborn reads combat log events and unit cast signals.\n2. Rule Resolution: It applies cooldown rules (base cooldowns, shared cooldown links, reset effects, and spec modifiers).\n3. Identity Mapping: It resolves caster GUID/name to the correct visible nameplate.\n4. Rendering: It draws cooldown icons, countdown text, and border cues on each nameplate.\n5. Filtering: Optional spell-class filtering prevents spell-class miss matches.",
+                name = "1. Detection: Icicle: Reborn reads combat log events and unit cast signals.\n2. Rule Resolution: It applies cooldown rules (base cooldowns, shared cooldown links, reset effects, and spec modifiers).\n3. Identity Mapping: It resolves caster GUID/name to the correct visible nameplate.\n4. Rendering: It draws cooldown icons, countdown text, and border cues on each nameplate.\n5. Filtering: Optional spell-class filtering prevents spell-class mismatches.",
             },
             introSpacer2 = {
                 type = "description",
@@ -54,7 +54,7 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
             setupBody = {
                 type = "description",
                 order = 7,
-                name = "1. General: Choose where Icicle: Reborn runs (arena, battleground, world, party, raid).\n2. Style settings: Adjust icon size, text, and border thickness/inset.\n3. Position settings: Anchor and offset the icon container around nameplates.\n4. Tracked Spells: Review categories, enable/disable entries, and customize category border colors.\n5. Profiles: Save or copy presets for different characters/specs.",
+                name = "1. General: Choose where Icicle: Reborn runs (arena, battleground, world, party, raid).\n2. Style settings: Adjust icon size, text, and border thickness/inset.\n3. Position settings: Anchor and offset the icon container around nameplates.\n4. Tracked Spells: Review categories, enable/disable entries, and customize category/class border colors.\n5. Profiles: Save or copy presets for different characters/specs.",
             },
             introSpacer3 = {
                 type = "description",
@@ -70,7 +70,7 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
             notesBody = {
                 type = "description",
                 order = 10,
-                name = "- Interrupt highlighting can pulse border or icon based on Interrupt settings.\n- Category border visibility can be toggled per category in Tracked Spells.\n- On first install or profile reset, default tracked spells/categories are loaded from the addon dataset.\n- Default enabled set is curated: interrupt, stun, incapacitate, damage-reduction, and movement-impair-removal spells are enabled; other default spells remain disabled until manually enabled.\n- If mapping is ambiguous (multiple same-name enemies), targeting/focus/mouseover helps resolve ownership faster.",
+                name = "- Interrupt highlighting can pulse border or icon based on Interrupt settings.\n- Category/class border visibility can be toggled per category in Tracked Spells.\n- On first install or profile reset, default tracked spells/categories are loaded from the addon dataset.\n- Default enabled set is curated: interrupt, stun, incapacitate, damage-reduction, and movement-impair-removal spells are enabled; other default spells remain disabled until manually enabled.\n- If mapping is ambiguous (multiple same-name enemies), targeting/focus/mouseover helps resolve ownership faster.",
             },
             introSpacer4 = {
                 type = "description",
@@ -128,10 +128,10 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
 
                 behaviorHeader = { type = "header", order = 3, name = "Behavior" },
                 showTooltips = { type = "toggle", order = 3.1, name = "Show tooltips", desc = "Shows tooltip details when hovering nameplate icons. Higher CPU cost." },
-                specDetectEnabled = { type = "toggle", order = 3.2, name = "Enable Advanced Spec Detection", desc = "Uses aura/inspect detection for modifier-aware cooldowns. Higher CPU cost" },
-                classCategoryFilterEnabled = { type = "toggle", order = 3.3, name = "Filter by spell-class", desc = "Supports filtering to prevent spell-class miss matches." },
+                specDetectEnabled = { type = "toggle", order = 3.2, name = "Enable Advanced Spec Detection", desc = "Uses aura/inspect detection for modifier-aware cooldowns. Higher CPU cost." },
+                classCategoryFilterEnabled = { type = "toggle", order = 3.3, name = "Filter by spell-class", desc = "Supports filtering to prevent spell-class mismatches." },
                 showOutOfRangeInspectMessages = { type = "toggle", order = 3.4, name = "Show out-of-range inspect warnings", desc = "Prints a message when aura/inspect detection cannot complete due to range." },
-                showAmbiguousByName = { type = "toggle", order = 3.5, name = "Show ambiguous icon", desc = "Show '?' icon for ambiguity unit (target/focus/mouseover the unit to detect cooldowns)" },
+                showAmbiguousByName = { type = "toggle", order = 3.5, name = "Show ambiguous icon", desc = "Shows a '?' icon when ownership is ambiguous (target/focus/mouseover helps resolve faster)." },
                 testMode = {
                     type = "toggle",
                     order = 3.6,
@@ -161,7 +161,7 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
                 interruptHighlightMode = {
                     type = "select",
                     order = 4.3,
-                    name = "How Highlight interrupts?",
+                    name = "How to highlight interrupts?",
                     desc = "Choose whether interrupt pulses animate the border or the icon.",
                     values = {
                         BORDER = "Border pulses",

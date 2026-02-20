@@ -3,9 +3,9 @@
 ## Notes: Tracks enemy cooldown usage and shows active cooldown timers on nameplates.
 ## SavedVariables: Icicledb
 ## Author: Hiroshi Richi
-## Version: 1.0.0-Beta
+## Version: 1.0.1-Beta
 ## X-Flavor: WotLK 3.3.5a
-## X-ReleaseDate: 2026-02-19
+## X-ReleaseDate: 2026-02-20
 ## X-Category: PvP
 ## X-DefaultState: Enabled
 

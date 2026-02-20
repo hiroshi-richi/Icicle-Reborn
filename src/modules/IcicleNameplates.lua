@@ -91,7 +91,7 @@ function IcicleNameplates.PlateName(meta, shortNameFn)
 end
 
 function IcicleNameplates.IsLikelyNamePlate(frame)
-    if frame.IcicleIsPlate ~= nil then return frame.IcicleIsPlate end
+    if frame.IcicleIsPlate then return true end
 
     local name = frame:GetName()
     if name and string.find(name, "NamePlate") then
@@ -100,7 +100,6 @@ function IcicleNameplates.IsLikelyNamePlate(frame)
     end
 
     if frame:GetNumRegions() < 2 or frame:GetNumChildren() < 1 then
-        frame.IcicleIsPlate = false
         return false
     end
 
@@ -120,7 +119,9 @@ function IcicleNameplates.IsLikelyNamePlate(frame)
         end
     end
 
-    frame.IcicleIsPlate = hasStatusBar
+    if hasStatusBar then
+        frame.IcicleIsPlate = true
+    end
     return hasStatusBar
 end
 
@@ -141,13 +142,24 @@ function IcicleNameplates.ScanNameplates(ctx)
     local now = ctx.GetTime()
     local numChildren = ctx.WorldFrame:GetNumChildren()
     local fullRescan = numChildren ~= (ctx.STATE.lastWorldChildrenCount or 0)
-    if fullRescan then
+    local shouldDiscover = fullRescan
+    if not shouldDiscover then
+        local pending = ctx.STATE.pendingBindByGUID and next(ctx.STATE.pendingBindByGUID) ~= nil
+        local interval = pending and 0.20 or 1.00
+        if now - (ctx.STATE.lastPlateDiscoveryAt or 0) >= interval then
+            shouldDiscover = true
+        end
+    end
+    if shouldDiscover then
         for i = 1, numChildren do
             local frame = select(i, ctx.WorldFrame:GetChildren())
             if frame and not ctx.STATE.knownPlates[frame] and IcicleNameplates.IsLikelyNamePlate(frame) then
                 ctx.RegisterPlate(frame)
             end
         end
+        ctx.STATE.lastPlateDiscoveryAt = now
+    end
+    if fullRescan then
         ctx.STATE.lastWorldChildrenCount = numChildren
     end
 

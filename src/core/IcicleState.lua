@@ -5,6 +5,7 @@ local RESET_TABLE_FIELDS = {
     "guidByPlate",
     "candidatesByName",
     "pendingBindByGUID",
+    "cooldownsByNameMirror",
     "recentEventByUnit",
     "recentUnitSucceededByUnit",
     "lastSpecAuraCheckByGUID",
@@ -51,6 +52,7 @@ function IcicleState.BuildInitialState()
 
         cooldownsByGUID = {},
         cooldownsByName = {},
+        cooldownsByNameMirror = {},
         recentEventByUnit = {},
         recentUnitSucceededByUnit = {},
         specByGUID = {},
@@ -73,6 +75,7 @@ function IcicleState.BuildInitialState()
         inspectOutOfRangeUnits = {},
         feignDeathAuraByGUID = {},
         lastWorldChildrenCount = 0,
+        lastPlateDiscoveryAt = 0,
         spellCategoryCache = {},
         expiryHeap = {},
         expiryCount = 0,
@@ -81,6 +84,8 @@ function IcicleState.BuildInitialState()
         scratchSpellInfo = {},
 
         scanAccum = 0,
+        fastScanUntil = 0,
+        nextFastScanPulseAt = 0,
         iconAccum = 0,
         groupAccum = 0,
         testAccum = 0,
@@ -122,6 +127,9 @@ function IcicleState.ResetRuntimeState(state, wipeTable)
     state.expiryCount = 0
     state.expirySeq = 0
     state.lastWorldChildrenCount = 0
+    state.lastPlateDiscoveryAt = 0
+    state.fastScanUntil = 0
+    state.nextFastScanPulseAt = 0
     state.inspectCurrent = nil
 end
 

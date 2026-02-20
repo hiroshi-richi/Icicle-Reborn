@@ -254,7 +254,6 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
     end
 
     local records
-    local isSharedOnly = false
     local spellInfoCache = (ctx and ctx.scratchSpellInfo) or {}
     for k in pairs(spellInfoCache) do
         spellInfoCache[k] = nil
@@ -275,7 +274,6 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
             return
         end
         records = BuildSharedOnlyRecords(ctx, sourceGUID, sourceName, spellID, sharedTargets, now, spellInfoCache, recordsScratch)
-        isSharedOnly = true
     end
 
     if #records == 0 then
@@ -300,12 +298,24 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
             end
         elseif ctx.RegisterPendingBind then
             ctx.RegisterPendingBind(sourceGUID, sourceName, spellName, now)
+            if ctx.RequestFastNameplateScan then
+                ctx.RequestFastNameplateScan(0.45)
+            end
         end
     end
 
     if sourceName and (not sourceGUID or not bound) then
         for i = 1, #records do
             UpsertRecord(ctx, ctx.STATE.cooldownsByName, sourceName, records[i], "name")
+        end
+        hasChanges = true
+    end
+
+    -- Mirror GUID-backed cooldowns by name so reappearing plates can show immediately
+    -- before GUID-to-plate rebinding completes.
+    if sourceGUID and sourceName and bound and ctx.STATE.cooldownsByNameMirror then
+        for i = 1, #records do
+            UpsertRecord(ctx, ctx.STATE.cooldownsByNameMirror, sourceName, records[i], "nameMirror")
         end
         hasChanges = true
     end
@@ -319,6 +329,10 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
         if sourceName then
             local changed = ApplyResets(ctx.STATE.cooldownsByName, sourceName, resetSpells)
             hasChanges = changed or hasChanges
+            if ctx.STATE.cooldownsByNameMirror then
+                changed = ApplyResets(ctx.STATE.cooldownsByNameMirror, sourceName, resetSpells)
+                hasChanges = changed or hasChanges
+            end
         end
     end
 

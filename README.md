@@ -2,13 +2,13 @@
 
 Icicle: Reborn tracks enemy cooldowns on WotLK (3.3.5a) nameplates and renders active cooldown timers directly on each enemy plate.
 
-![Interface: 30300](https://img.shields.io/badge/Interface-30300-blue) ![WotLK Retail](https://img.shields.io/badge/WotLK-Retail-yellow)
+![Interface: 30300](https://img.shields.io/badge/Interface-30300-blue) ![Wrath 3.3.5a](https://img.shields.io/badge/Wrath-3.3.5a-yellow)
 
 ## Release metadata
 
 - AddOn: `Icicle: Reborn`
 - Interface: `30300`
-- Version: `1.0.0-Beta`
+- Version: `1.0.1-Beta`
 - SavedVariables: `Icicledb`
 - Compatible client: `Wrath of the Lich King 3.3.5a`
 
@@ -17,8 +17,9 @@ Icicle: Reborn tracks enemy cooldowns on WotLK (3.3.5a) nameplates and renders a
 - Reads combat events and cast signals to detect cooldown usage.
 - Resolves caster identity (GUID/name) to visible nameplates.
 - Stores cooldowns by GUID, with controlled name-based storage when GUID is not yet resolved.
+- Uses a short reappear fallback so known cooldowns can return faster when nameplates come back into view.
 - Applies cooldown rules (base cooldowns, shared links, reset effects, spec modifiers).
-- Supports class/category filtering to prevent class-spell miss matches.
+- Supports class/category filtering to prevent class-spell mismatches.
 - Shows category border colors and interrupt pulse highlight behavior.
 
 ## Configuration
@@ -45,6 +46,7 @@ Panels:
 ## Performance notes
 
 - Nameplate scanning is throttled (`scanInterval`).
+- Event-driven fast-scan bursts temporarily increase scan cadence during combat/nameplate transitions.
 - Icon text refresh is throttled (`iconUpdateInterval`).
 - Group target resolution is throttled (`groupScanInterval`).
 - Rendering uses pooled icon frames with periodic updates (no per-icon `OnUpdate` handlers).
@@ -52,13 +54,13 @@ Panels:
 ## Known limits (3.3.5a)
 
 - Blizzard 3.3.5 nameplates do not expose GUID directly.
-- Duplicate enemy names can remain ambiguous until stronger mapping signals appear.
+- Same-name units (most commonly pets/guardians) can remain ambiguous until stronger mapping signals appear.
 - Castbar correlation depends on cast text visibility and event timing.
 
 ## Quick release checklist
 
 1. Enter combat and confirm enemy cooldown icons appear when casts happen.
 2. Verify category border colors match Tracked Spells category settings.
-3. Confirm interrupt highlight pulse appears when enabled.
+3. Confirm interrupt highlight pulses appear as expected for both Border and Icon modes.
 4. Test duplicate-name situations with target/focus/mouseover to stabilize mapping.
 5. Use `General -> Test mode` for quick UI simulation checks.

@@ -288,7 +288,14 @@ local function ProcessExpiryQueue(now)
             break
         end
         HeapPop()
-        local store = (top.storeKind == "guid") and STATE.cooldownsByGUID or STATE.cooldownsByName
+        local store
+        if top.storeKind == "guid" then
+            store = STATE.cooldownsByGUID
+        elseif top.storeKind == "nameMirror" then
+            store = STATE.cooldownsByNameMirror
+        else
+            store = STATE.cooldownsByName
+        end
         local bySpell = store and store[top.unitKey]
         if bySpell then
             local rec = bySpell[top.spellID]
@@ -1056,6 +1063,9 @@ local function OnPlateShow(self)
         RegisterPlate(self)
     end
     MarkPlateDirty(self)
+    if db then
+        STATE.fastScanUntil = max(STATE.fastScanUntil or 0, GetTime() + 0.25)
+    end
 end
 
 RegisterPlate = function(frame)
@@ -1116,6 +1126,24 @@ local function ResolveGroupTargets()
     return ResolverModule.ResolveGroupTargets(RESOLVER_CONTEXT)
 end
 
+local FAST_SCAN_PULSE_MIN_INTERVAL = 0.03
+
+local function RequestFastNameplateScan(duration)
+    if not db then
+        return
+    end
+    local now = GetTime()
+    local forSeconds = tonumber(duration) or max(0.25, (db.scanInterval or 0.15) * 2)
+    if forSeconds < 0.05 then
+        forSeconds = 0.05
+    end
+    STATE.fastScanUntil = max(STATE.fastScanUntil or 0, now + forSeconds)
+    if now >= (STATE.nextFastScanPulseAt or 0) then
+        STATE.scanAccum = max(STATE.scanAccum or 0, db.scanInterval or 0.15)
+        STATE.nextFastScanPulseAt = now + FAST_SCAN_PULSE_MIN_INTERVAL
+    end
+end
+
 local TRACKING_CONTEXT = {
     STATE = STATE,
     db = nil,
@@ -1140,6 +1168,7 @@ local TRACKING_CONTEXT = {
     GetSpellOrItemInfo = GetSpellOrItemInfo,
     SpellCategory = SpellCategory,
     GetSourceClassCategory = GetSourceClassCategory,
+    RequestFastNameplateScan = RequestFastNameplateScan,
     scratchRecords = STATE.scratchRecords,
     scratchSpellInfo = STATE.scratchSpellInfo,
 }
@@ -1151,6 +1180,7 @@ end
 local function ResetAllCooldowns(silent)
     WipeTable(STATE.cooldownsByGUID)
     WipeTable(STATE.cooldownsByName)
+    WipeTable(STATE.cooldownsByNameMirror)
     WipeTable(STATE.recentEventByUnit)
     WipeTable(STATE.expiryHeap)
     STATE.expiryCount = 0
@@ -1472,6 +1502,7 @@ local function HandleUnitSignal(unit, confidence, reason)
     if not IsEnabledInCurrentZone() then
         return
     end
+    RequestFastNameplateScan(0.35)
     ResolveUnit(unit, confidence, reason)
     RefreshAllVisiblePlates()
 end
@@ -1489,6 +1520,12 @@ local function HasActiveCooldownForUnit(unitGUID, unitName, spellID)
     end
     if unitName and STATE.cooldownsByName[unitName] and STATE.cooldownsByName[unitName][spellID] then
         local rec = STATE.cooldownsByName[unitName][spellID]
+        if rec and rec.expiresAt and rec.expiresAt > now then
+            return true
+        end
+    end
+    if unitName and STATE.cooldownsByNameMirror and STATE.cooldownsByNameMirror[unitName] and STATE.cooldownsByNameMirror[unitName][spellID] then
+        local rec = STATE.cooldownsByNameMirror[unitName][spellID]
         if rec and rec.expiresAt and rec.expiresAt > now then
             return true
         end
@@ -1661,6 +1698,7 @@ local EVENTS_CONTEXT = {
     UpdateAdvancedSpecEvents = UpdateAdvancedSpecEvents,
     RecordCombatReaction = RecordCombatReaction,
     StartCooldown = StartCooldown,
+    RequestFastNameplateScan = RequestFastNameplateScan,
     OnUpdate = OnUpdate,
     BuildOptionsPanel = BuildOptionsPanel,
     ResetRuntimeState = function()

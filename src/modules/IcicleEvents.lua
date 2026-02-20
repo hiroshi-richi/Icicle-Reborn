@@ -208,6 +208,9 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
             end
         end
         if not normalizedSourceName then return end
+        if ctx.RequestFastNameplateScan then
+            ctx.RequestFastNameplateScan(0.45)
+        end
 
         if ctx.RecordCombatReaction and reaction then
             ctx.RecordCombatReaction(normalizedSourceGUID, normalizedSourceName, reaction)
@@ -256,6 +259,9 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
             return
         end
 
+        if ctx.RequestFastNameplateScan then
+            ctx.RequestFastNameplateScan(0.45)
+        end
         ctx.ResolveUnit(unit, 0.97, "unit-cast")
         ctx.StartCooldown(sourceGUID, sourceName, spellID, spellName, "SPELL_CAST_SUCCESS")
     end
