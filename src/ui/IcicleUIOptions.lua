@@ -1,6 +1,7 @@
 IcicleUIOptions = IcicleUIOptions or {}
 
 local strfind, strlower = string.find, string.lower
+local format = string.format
 local tinsert = table.insert
 
 function IcicleUIOptions.BuildOptionsPanel(ctx)
@@ -13,25 +14,15 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
         return ctx.GetDB()
     end
 
-    local function L(key, defaultValue)
-        if type(IcicleLocale) == "table" and IcicleLocale.Get then
-            return IcicleLocale.Get(key, defaultValue)
-        end
-        return defaultValue
-    end
-
-    local root = {
-        type = "group",
-        name = "Icicle: Reborn",
-        args = {
+    local function BuildRootGroup(addonVersion)
+        return {
+            type = "group",
+            name = "Icicle: Reborn",
+            args = {
             introOverview = {
                 type = "description",
                 order = 1,
-                name = "Version: " .. tostring(addonVersion) .. " (WotLK 3.3.5a)\n\n" ..
-                    "Icicle: Reborn tracks enemy cooldown usage and shows active cooldown timers directly on nameplates. " ..
-                    "It is designed to give fast combat awareness without needing to move your eyes away from enemy units.\n\n" ..
-                    "The addon listens to combat events, identifies who cast what, maps that information to visible nameplates, " ..
-                    "and renders countdown icons with category-aware visuals.",
+                name = format("Version: %s (WotLK 3.3.5a)\n\nIcicle: Reborn tracks enemy cooldown usage and shows active cooldown timers directly on nameplates. It is designed to give fast combat awareness without needing to move your eyes away from enemy units.\n\nThe addon listens to combat events, identifies who cast what, maps that information to visible nameplates, and renders countdown icons with class-aware visuals.", tostring(addonVersion)),
             },
             introSpacer1 = {
                 type = "description",
@@ -47,11 +38,7 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
             howItWorksBody = {
                 type = "description",
                 order = 4,
-                name = "1. Detection: Icicle: Reborn reads combat log events and unit cast signals.\n" ..
-                    "2. Rule Resolution: It applies cooldown rules (base cooldowns, shared cooldown links, reset effects, and spec modifiers).\n" ..
-                    "3. Identity Mapping: It resolves caster GUID/name to the correct visible nameplate.\n" ..
-                    "4. Rendering: It draws cooldown icons, countdown text, and border cues on each nameplate.\n" ..
-                    "5. Filtering: Optional class/category filtering prevents impossible spell-to-class assignments.",
+                name = "1. Detection: Icicle: Reborn reads combat log events and unit cast signals.\n2. Rule Resolution: It applies cooldown rules (base cooldowns, shared cooldown links, reset effects, and spec modifiers).\n3. Identity Mapping: It resolves caster GUID/name to the correct visible nameplate.\n4. Rendering: It draws cooldown icons, countdown text, and border cues on each nameplate.\n5. Filtering: Optional spell-class filtering prevents spell-class miss matches.",
             },
             introSpacer2 = {
                 type = "description",
@@ -67,11 +54,7 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
             setupBody = {
                 type = "description",
                 order = 7,
-                name = "1. General: Choose where Icicle: Reborn runs (arena, battleground, world, party, raid).\n" ..
-                    "2. Style settings: Adjust icon size, text, and border thickness/inset.\n" ..
-                    "3. Position settings: Anchor and offset the icon container around nameplates.\n" ..
-                    "4. Tracked Spells: Review categories, enable/disable entries, and customize category border colors.\n" ..
-                    "5. Profiles: Save or copy presets for different characters/specs.",
+                name = "1. General: Choose where Icicle: Reborn runs (arena, battleground, world, party, raid).\n2. Style settings: Adjust icon size, text, and border thickness/inset.\n3. Position settings: Anchor and offset the icon container around nameplates.\n4. Tracked Spells: Review categories, enable/disable entries, and customize category border colors.\n5. Profiles: Save or copy presets for different characters/specs.",
             },
             introSpacer3 = {
                 type = "description",
@@ -87,11 +70,7 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
             notesBody = {
                 type = "description",
                 order = 10,
-                name = "- Interrupt highlighting pulses the border and uses the spell/category border color.\n" ..
-                    "- Category border visibility can be toggled per category in Tracked Spells.\n" ..
-                    "- On first install or profile reset, default tracked spells/categories are loaded from the addon dataset.\n" ..
-                    "- Default enabled set is curated: interrupt, stun, incapacitate, damage-reduction, and movement-impair-removal spells are enabled; other default spells remain disabled until manually enabled.\n" ..
-                    "- If mapping is ambiguous (multiple same-name enemies), targeting/focus/mouseover helps resolve ownership faster.",
+                name = "- Interrupt highlighting can pulse border or icon based on Interrupt settings.\n- Category border visibility can be toggled per category in Tracked Spells.\n- On first install or profile reset, default tracked spells/categories are loaded from the addon dataset.\n- Default enabled set is curated: interrupt, stun, incapacitate, damage-reduction, and movement-impair-removal spells are enabled; other default spells remain disabled until manually enabled.\n- If mapping is ambiguous (multiple same-name enemies), targeting/focus/mouseover helps resolve ownership faster.",
             },
             introSpacer4 = {
                 type = "description",
@@ -109,8 +88,11 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
                 order = 13,
                 name = "General, Style settings, Position settings, Tracked Spells, Profiles",
             },
-        },
-    }
+            },
+        }
+    end
+
+    local root = BuildRootGroup(addonVersion)
 
     local function OptionsSet(info, value)
         local db = DB()
@@ -127,64 +109,86 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
         return db[info[#info]]
     end
 
-    local general = {
-        type = "group",
-        name = "General",
-        get = OptionsGet,
-        set = OptionsSet,
-        args = {
-            desc = { type = "description", order = 1, name = "Display conditions and runtime behavior." },
+    local function BuildGeneralGroup()
+        return {
+            type = "group",
+            name = "General",
+            get = OptionsGet,
+            set = OptionsSet,
+            args = {
+                desc = { type = "description", order = 1, name = "Display conditions and runtime behavior." },
+                
+                zonesHeader = { type = "header", order = 2, name = "Zones" },
+                arena = { type = "toggle", order = 2.1, name = "Arena", desc = "Enable Icicle: Reborn while in arena instances. Zone enable/disable applies after a 2-second safety delay." },
+                battleground = { type = "toggle", order = 2.2, name = "Battleground", desc = "Enable Icicle: Reborn while in battleground instances. Zone enable/disable applies after a 2-second safety delay." },
+                field = { type = "toggle", order = 2.3, name = "World", desc = "Enable Icicle: Reborn in open world/non-instance zones. Zone enable/disable applies after a 2-second safety delay." },
+                party = { type = "toggle", order = 2.4, name = "Party", desc = "Enable Icicle: Reborn in 5-player dungeon instances. Zone enable/disable applies after a 2-second safety delay." },
+                raid = { type = "toggle", order = 2.5, name = "Raid", desc = "Enable Icicle: Reborn in raid instances. Zone enable/disable applies after a 2-second safety delay." },
+                sep1 = { type = "description", order = 2.6, name = " ", width = "full" },
 
-            zonesHeader = { type = "header", order = 2, name = "Zones" },
-            all = { type = "toggle", order = 2.1, name = "Enable everywhere", desc = "Ignores zone filters and enables Icicle: Reborn in all zones." },
-            arena = { type = "toggle", order = 2.2, name = "Arena", desc = "Enable Icicle: Reborn while in arena instances." },
-            battleground = { type = "toggle", order = 2.3, name = "Battleground", desc = "Enable Icicle: Reborn while in battleground instances." },
-            field = { type = "toggle", order = 2.4, name = "World", desc = "Enable Icicle: Reborn in open world/non-instance zones." },
-            party = { type = "toggle", order = 2.5, name = L("general.party", "Party"), desc = "Enable Icicle: Reborn in 5-player dungeon instances." },
-            raid = { type = "toggle", order = 2.6, name = L("general.raid", "Raid"), desc = "Enable Icicle: Reborn in raid instances." },
-            sep1 = { type = "description", order = 2.7, name = " ", width = "full" },
+                behaviorHeader = { type = "header", order = 3, name = "Behavior" },
+                showTooltips = { type = "toggle", order = 3.1, name = "Show tooltips", desc = "Shows tooltip details when hovering nameplate icons. Higher CPU cost." },
+                specDetectEnabled = { type = "toggle", order = 3.2, name = "Enable Advanced Spec Detection", desc = "Uses aura/inspect detection for modifier-aware cooldowns. Higher CPU cost" },
+                classCategoryFilterEnabled = { type = "toggle", order = 3.3, name = "Filter by spell-class", desc = "Supports filtering to prevent spell-class miss matches." },
+                showOutOfRangeInspectMessages = { type = "toggle", order = 3.4, name = "Show out-of-range inspect warnings", desc = "Prints a message when aura/inspect detection cannot complete due to range." },
+                showAmbiguousByName = { type = "toggle", order = 3.5, name = "Show ambiguous icon", desc = "Show '?' icon for ambiguity unit (target/focus/mouseover the unit to detect cooldowns)" },
+                testMode = {
+                    type = "toggle",
+                    order = 3.6,
+                    name = "Test mode",
+                    desc = "Enable or disable synthetic cooldown icons on visible nameplates for UI testing.",
+                    get = function()
+                        return ctx.STATE and ctx.STATE.testModeActive and true or false
+                    end,
+                    set = function(_, value)
+                        local active = ctx.STATE and ctx.STATE.testModeActive and true or false
+                        if (value and not active) or ((not value) and active) then
+                            ctx.ToggleTestMode()
+                        end
+                    end,
+                },
+                debugMode = {
+                    type = "toggle",
+                    order = 3.7,
+                    name = "Debug mode",
+                    desc = "Prints chat messages when Icicle is enabled or disabled at runtime (zone changes, test mode, and similar transitions).",
+                },
+                sep2 = { type = "description", order = 3.8, name = " ", width = "full" },
 
-            behaviorHeader = { type = "header", order = 3, name = "Behavior" },
-            showTooltips = { type = "toggle", order = 3.1, name = "Show tooltips", desc = "Shows tooltip details when hovering nameplate icons." },
-            showInterruptWhenCapped = { type = "toggle", order = 3.2, name = L("general.show_interrupt_when_capped", "Prioritize interrupt cooldowns when capped"), desc = "When icon cap is reached, prefer showing interrupt cooldowns first." },
-            highlightInterrupts = { type = "toggle", order = 3.3, name = L("style.highlight_interrupts", "Highlight interrupts"), desc = "Do border pulses of interrupt cooldowns." },
-            specDetectEnabled = { type = "toggle", order = 3.4, name = "Enable Advanced Spec Detection", desc = "Uses aura/inspect enemy spec detection for modifier-aware cooldowns. Higher CPU cost." },
-            classCategoryFilterEnabled = { type = "toggle", order = 3.5, name = L("general.class_filter", "Filter by spell class/category"), desc = "Supports class/category filtering to prevent class-spell miss matches." },
-            showOutOfRangeInspectMessages = { type = "toggle", order = 3.6, name = L("general.show_out_of_range_inspect", "Show out-of-range inspect warnings"), desc = "Prints a message when inspect-based spec detection cannot complete due to range." },
-            showAmbiguousByName = { type = "toggle", order = 3.7, name = "Show ambiguous icon", desc = "Show '?' icon for ambiguity unit (target/focus/mouseover the unit to detect cooldowns)" },
-            testMode = {
-                type = "toggle",
-                order = 3.8,
-                name = "Test mode",
-                desc = "Enable or disable synthetic cooldown icons on visible nameplates for UI testing.",
-                get = function()
-                    return ctx.STATE and ctx.STATE.testModeActive and true or false
-                end,
-                set = function(_, value)
-                    local active = ctx.STATE and ctx.STATE.testModeActive and true or false
-                    if (value and not active) or ((not value) and active) then
-                        ctx.ToggleTestMode()
-                    end
-                end,
+                interruptHeader = { type = "header", order = 4, name = "Interrupt" },
+                showInterruptWhenCapped = { type = "toggle", order = 4.1, name = "Prioritize interrupt cooldowns when capped", desc = "When icon cap is reached, prefer showing interrupt cooldowns first." },
+                highlightInterrupts = { type = "toggle", order = 4.2, name = "Highlight interrupts", desc = "Enable interrupt pulse highlighting." },
+                interruptHighlightMode = {
+                    type = "select",
+                    order = 4.3,
+                    name = "How Highlight interrupts?",
+                    desc = "Choose whether interrupt pulses animate the border or the icon.",
+                    values = {
+                        BORDER = "Border pulses",
+                        ICON = "Icon pulses",
+                    },
+                },
+                sepInterrupt = { type = "description", order = 4.4, name = " ", width = "full" },
+
+                performanceHeader = { type = "header", order = 5, name = "Performance" },
+                scanInterval = { type = "range", order = 5.1, name = "Scan interval", desc = "How often nameplates are scanned for updates.", min = 0.10, max = 0.50, step = 0.01 },
+                iconUpdateInterval = { type = "range", order = 5.2, name = "Icon update interval", desc = "How often cooldown texts/colors are refreshed.", min = 0.05, max = 0.30, step = 0.01 },
+                groupScanInterval = { type = "range", order = 5.3, name = "Group signal scan", desc = "How often group targets are used to resolve GUID/nameplate mapping.", min = 0.10, max = 1.00, step = 0.05 },
+                sep3 = { type = "description", order = 5.4, name = " ", width = "full" },
+
+                filtersHeader = { type = "header", order = 6.0, name = "Filters" },
+                minTrackedCooldown = { type = "range", order = 6.1, name = "Min tracked cooldown (sec)", desc = "Ignore spells with cooldown below this value.", min = 0, max = 600, step = 1 },
+                maxTrackedCooldown = { type = "range", order = 6.2, name = "Max tracked cooldown (sec, 0=off)", desc = "Ignore spells with cooldown above this value (0 disables max filter).", min = 0, max = 1800, step = 5 },
+                sep4 = { type = "description", order = 6.3, name = " ", width = "full" },
+
+                inspectHeader = { type = "header", order = 7, name = "Inspect" },
+                inspectRetryInterval = { type = "range", order = 7.1, name = "Inspect retry interval", desc = "Delay between inspect retries while waiting for spec data.", min = 0.2, max = 5.0, step = 0.1 },
+                inspectMaxRetryTime = { type = "range", order = 7.2, name = "Inspect max retry time", desc = "Maximum time to keep retrying inspect before giving up.", min = 5, max = 120, step = 1 },
             },
-            sep2 = { type = "description", order = 3.9, name = " ", width = "full" },
+        }
+    end
 
-            performanceHeader = { type = "header", order = 4, name = "Performance" },
-            scanInterval = { type = "range", order = 4.1, name = "Scan interval", desc = "How often nameplates are scanned for updates.", min = 0.10, max = 0.50, step = 0.01 },
-            iconUpdateInterval = { type = "range", order = 4.2, name = "Icon update interval", desc = "How often cooldown texts/colors are refreshed.", min = 0.05, max = 0.30, step = 0.01 },
-            groupScanInterval = { type = "range", order = 4.3, name = "Group signal scan", desc = "How often group targets are used to resolve GUID/nameplate mapping.", min = 0.10, max = 1.00, step = 0.05 },
-            sep3 = { type = "description", order = 4.4, name = " ", width = "full" },
-
-            filtersHeader = { type = "header", order = 5, name = "Filters" },
-            minTrackedCooldown = { type = "range", order = 5.1, name = L("general.min_cd_filter", "Min tracked cooldown (sec)"), desc = "Ignore spells with cooldown below this value.", min = 0, max = 600, step = 1 },
-            maxTrackedCooldown = { type = "range", order = 5.2, name = L("general.max_cd_filter", "Max tracked cooldown (sec, 0=off)"), desc = "Ignore spells with cooldown above this value (0 disables max filter).", min = 0, max = 1800, step = 5 },
-            sep4 = { type = "description", order = 5.3, name = " ", width = "full" },
-
-            inspectHeader = { type = "header", order = 6, name = "Inspect" },
-            inspectRetryInterval = { type = "range", order = 6.1, name = L("general.inspect_retry_interval", "Inspect retry interval"), desc = "Delay between inspect retries while waiting for spec data.", min = 0.2, max = 5.0, step = 0.1 },
-            inspectMaxRetryTime = { type = "range", order = 6.2, name = L("general.inspect_max_retry", "Inspect max retry time"), desc = "Maximum time to keep retrying inspect before giving up.", min = 5, max = 120, step = 1 },
-        },
-    }
+    local general = BuildGeneralGroup()
 
     local fontChoices = {
         ["Fonts\\FRIZQT__.TTF"] = "Friz Quadrata TT",
@@ -193,12 +197,13 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
         ["Fonts\\SKURRI.TTF"] = "Skurri",
     }
 
-    local style = {
-        type = "group",
-        name = "Style settings",
-        get = OptionsGet,
-        set = OptionsSet,
-        args = {
+    local function BuildStyleGroup()
+        return {
+            type = "group",
+            name = "Style settings",
+            get = OptionsGet,
+            set = OptionsSet,
+            args = {
             desc = { type = "description", order = 1, name = "Icon/text appearance." },
             iconSize = { type = "range", order = 2, name = "Icon size", desc = "Sets the width/height of each cooldown icon.", min = 10, max = 64, step = 1 },
             fontSize = { type = "range", order = 3, name = "Font size", desc = "Controls the cooldown text size inside icons.", min = 6, max = 30, step = 1 },
@@ -211,14 +216,14 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
             priorityBorderSize = {
                 type = "range",
                 order = 9.1,
-                name = L("style.border_size", "Border thickness"),
+                name = "Border thickness",
                 desc = "Thickness of highlight borders.",
                 min = 1, max = 6, step = 1,
             },
             priorityBorderInset = {
                 type = "range",
                 order = 9.2,
-                name = L("style.border_inset", "Border inset"),
+                name = "Border inset",
                 desc = "Moves border inward/outward relative to icon edges.",
                 min = -2, max = 4, step = 1,
             },
@@ -228,15 +233,19 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
                 name = "Show borders",
                 desc = "Show category color borders.",
             }
-        },
-    }
+            },
+        }
+    end
 
-    local position = {
-        type = "group",
-        name = "Position settings",
-        get = OptionsGet,
-        set = OptionsSet,
-        args = {
+    local style = BuildStyleGroup()
+
+    local function BuildPositionGroup()
+        return {
+            type = "group",
+            name = "Position settings",
+            get = OptionsGet,
+            set = OptionsSet,
+            args = {
             desc = { type = "description", order = 1, name = "Container anchor and growth configuration." },
             spacer1 = { type = "description", order = 1.5, name = "", width = "full" },
             anchorPoint = { type = "select", order = 2, name = "Frame anchor", desc = "Anchor point used by Icicle: Reborn icon container.", values = ctx.POINT_VALUES },
@@ -253,23 +262,16 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
                 desc = "Rendering layer priority of Icicle: Reborn icons relative to other UI elements.",
                 values = { LOW = "LOW", MEDIUM = "MEDIUM", HIGH = "HIGH" }
             },
-        },
-    }
+            },
+        }
+    end
+
+    local position = BuildPositionGroup()
 
     local tmpAddSpellIDByCategory = {}
     local spellSearchText = ""
-    local categoryBorderDefaults = {
+    local categoryBorderDefaults = ctx.CATEGORY_BORDER_DEFAULTS or {
         GENERAL = { r = 0.502, g = 0.502, b = 0.502, a = 1.00 },
-        WARRIOR = { r = 0.78, g = 0.61, b = 0.43, a = 1.00 },
-        PALADIN = { r = 0.96, g = 0.55, b = 0.73, a = 1.00 },
-        HUNTER = { r = 0.67, g = 0.83, b = 0.45, a = 1.00 },
-        ROGUE = { r = 1.00, g = 0.96, b = 0.41, a = 1.00 },
-        PRIEST = { r = 1.00, g = 1.00, b = 1.00, a = 1.00 },
-        DEATH_KNIGHT = { r = 0.77, g = 0.12, b = 0.23, a = 1.00 },
-        SHAMAN = { r = 0.00, g = 0.44, b = 0.87, a = 1.00 },
-        MAGE = { r = 0.41, g = 0.80, b = 0.94, a = 1.00 },
-        WARLOCK = { r = 0.58, g = 0.51, b = 0.79, a = 1.00 },
-        DRUID = { r = 1.00, g = 0.49, b = 0.04, a = 1.00 },
     }
     local spells = {
         type = "group",
@@ -424,9 +426,9 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
             ctx.NotifySpellsChanged()
             if ctx.Print then
                 if enabled then
-                    ctx.Print("All spells in category " .. tostring(categoryLabel) .. " were Enabled.")
+                    ctx.Print(format("All spells in category %s were Enabled.", tostring(categoryLabel)))
                 else
-                    ctx.Print("All spells in category " .. tostring(categoryLabel) .. " were Disabled.")
+                    ctx.Print(format("All spells in category %s were Disabled.", tostring(categoryLabel)))
                 end
             end
         end
@@ -469,7 +471,7 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
             ctx.NotifySpellsChanged()
             ctx.RefreshAllVisiblePlates()
             if ctx.Print then
-                ctx.Print("Category " .. tostring(categoryLabel) .. " was restored.")
+                ctx.Print(format("Category %s was restored.", tostring(categoryLabel)))
             end
         end
 
@@ -517,7 +519,7 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
                         type = "color",
                         order = 2.2,
                         width = "normal",
-                        name = " " .. tostring(categoryLabel) .. " color",
+                        name = " " .. format("%s color", tostring(categoryLabel)),
                         desc = "Border color used for this category on tracked spell icons.",
                         hasAlpha = true,
                         get = function()
@@ -556,7 +558,7 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
                         type = "execute",
                         order = 3.2,
                         width = "normal",
-                        name = "Add Spell to " .. categoryLabel,
+                        name = format("Add Spell to %s", categoryLabel),
                         desc = "Adds the entered Spell ID to this category as a tracked spell.",
                         func = function() AddSpellToCategory(categoryKey) end,
                     },
@@ -739,7 +741,7 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
                 spells.args[categoryKey] = {
                     type = "group",
                     name = categoryLabel,
-                    desc = "Category controls and tracked spells for " .. tostring(categoryLabel) .. ".",
+                    desc = format("Category controls and tracked spells for %s.", tostring(categoryLabel)),
                     order = 100 + order,
                     childGroups = "tree",
                     args = categoryArgs,
@@ -765,3 +767,4 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
 
     ctx.SetBuilt(true)
 end
+

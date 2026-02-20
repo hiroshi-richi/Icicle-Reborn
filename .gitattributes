@@ -1,0 +1,5 @@
+* text=auto
+*.toc text eol=lf
+*.lua text eol=lf
+*.xml text eol=lf
+*.md  text eol=lf

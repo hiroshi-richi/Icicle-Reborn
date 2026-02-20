@@ -1,5 +1,7 @@
 IcicleNameplates = IcicleNameplates or {}
 
+local select = select
+
 local function ReactionFromBarColor(r, g, b)
     if type(r) ~= "number" or type(g) ~= "number" or type(b) ~= "number" then
         return nil
@@ -22,9 +24,9 @@ function IcicleNameplates.FindFontStringNameRegion(plate)
     if plate.UnitFrame and plate.UnitFrame.oldName and plate.UnitFrame.oldName.GetText then return plate.UnitFrame.oldName end
 
     local best
-    local regions = { plate:GetRegions() }
-    for i = 1, #regions do
-        local reg = regions[i]
+    local regionCount = plate:GetNumRegions()
+    for i = 1, regionCount do
+        local reg = select(i, plate:GetRegions())
         if reg and reg.GetObjectType and reg:GetObjectType() == "FontString" then
             local txt = reg:GetText()
             if txt and txt ~= "" then
@@ -42,9 +44,9 @@ function IcicleNameplates.FindBars(plate)
         healthBar = plate.healthBar
     end
 
-    local children = { plate:GetChildren() }
-    for i = 1, #children do
-        local child = children[i]
+    local childCount = plate:GetNumChildren()
+    for i = 1, childCount do
+        local child = select(i, plate:GetChildren())
         if child and child.GetObjectType and child:GetObjectType() == "StatusBar" then
             if not healthBar then
                 healthBar = child
@@ -65,9 +67,9 @@ function IcicleNameplates.GetCastSpellFromBar(castBar)
         if txt and txt ~= "" then return txt end
     end
 
-    local regions = { castBar:GetRegions() }
-    for i = 1, #regions do
-        local reg = regions[i]
+    local regionCount = castBar:GetNumRegions()
+    for i = 1, regionCount do
+        local reg = select(i, castBar:GetRegions())
         if reg and reg.GetObjectType and reg:GetObjectType() == "FontString" then
             local txt = reg:GetText()
             if txt and txt ~= "" then return txt end
@@ -109,9 +111,9 @@ function IcicleNameplates.IsLikelyNamePlate(frame)
     end
 
     local hasStatusBar = false
-    local children = { frame:GetChildren() }
-    for i = 1, #children do
-        local child = children[i]
+    local childCount = frame:GetNumChildren()
+    for i = 1, childCount do
+        local child = select(i, frame:GetChildren())
         if child and child.GetObjectType and child:GetObjectType() == "StatusBar" then
             hasStatusBar = true
             break
@@ -140,9 +142,8 @@ function IcicleNameplates.ScanNameplates(ctx)
     local numChildren = ctx.WorldFrame:GetNumChildren()
     local fullRescan = numChildren ~= (ctx.STATE.lastWorldChildrenCount or 0)
     if fullRescan then
-        local children = { ctx.WorldFrame:GetChildren() }
-        for i = 1, #children do
-            local frame = children[i]
+        for i = 1, numChildren do
+            local frame = select(i, ctx.WorldFrame:GetChildren())
             if frame and not ctx.STATE.knownPlates[frame] and IcicleNameplates.IsLikelyNamePlate(frame) then
                 ctx.RegisterPlate(frame)
             end
@@ -156,8 +157,16 @@ function IcicleNameplates.ScanNameplates(ctx)
     local previousVisible = nil
     local previousVisibleSet = nil
     if not fullRescan then
-        previousVisible = {}
-        previousVisibleSet = {}
+        previousVisible = ctx.STATE._prevVisibleScratch or {}
+        previousVisibleSet = ctx.STATE._prevVisibleSetScratch or {}
+        ctx.STATE._prevVisibleScratch = previousVisible
+        ctx.STATE._prevVisibleSetScratch = previousVisibleSet
+        for i = #previousVisible, 1, -1 do
+            previousVisible[i] = nil
+        end
+        for plate in pairs(previousVisibleSet) do
+            previousVisibleSet[plate] = nil
+        end
         for i = 1, #visibleList do
             local plate = visibleList[i]
             previousVisible[i] = plate
@@ -241,11 +250,21 @@ function IcicleNameplates.ScanNameplates(ctx)
             ProcessPlate(plate)
         end
     end
+    if previousVisible then
+        for i = prevCount, 1, -1 do
+            previousVisible[i] = nil
+        end
+    end
     local dirtyCount = ctx.STATE.dirtyPlateCount or 0
     for i = 1, dirtyCount do
         local plate = ctx.STATE.dirtyPlateList and ctx.STATE.dirtyPlateList[i]
         if plate and (not previousVisibleSet or not previousVisibleSet[plate]) then
             ProcessPlate(plate)
+        end
+    end
+    if previousVisibleSet then
+        for plate in pairs(previousVisibleSet) do
+            previousVisibleSet[plate] = nil
         end
     end
 

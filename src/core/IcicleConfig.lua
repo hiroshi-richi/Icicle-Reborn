@@ -1,17 +1,7 @@
 IcicleConfig = IcicleConfig or {}
 
-local CATEGORY_BORDER_DEFAULTS = {
+local CATEGORY_BORDER_DEFAULTS = (IcicleConstants and IcicleConstants.CATEGORY_BORDER_DEFAULTS) or {
     GENERAL = { r = 0.502, g = 0.502, b = 0.502, a = 1.00 },
-    WARRIOR = { r = 0.780, g = 0.612, b = 0.431, a = 1.00 },
-    PALADIN = { r = 0.961, g = 0.549, b = 0.729, a = 1.00 },
-    HUNTER = { r = 0.671, g = 0.831, b = 0.451, a = 1.00 },
-    ROGUE = { r = 1.000, g = 0.961, b = 0.412, a = 1.00 },
-    PRIEST = { r = 1.00, g = 1.00, b = 1.00, a = 1.00 },
-    DEATH_KNIGHT = { r = 0.769, g = 0.122, b = 0.231, a = 1.00 },
-    SHAMAN = { r = 0.000, g = 0.439, b = 0.871, a = 1.00 },
-    MAGE = { r = 0.247, g = 0.780, b = 0.922, a = 1.00 },
-    WARLOCK = { r = 0.529, g = 0.533, b = 0.933, a = 1.00 },
-    DRUID = { r = 1.000, g = 0.490, b = 0.039, a = 1.00 },
 }
 
 local function GetDefaultCategoryForSpell(spellID)
@@ -131,6 +121,7 @@ function IcicleConfig.NormalizeProfile(db, baseCooldowns)
     if db.party == nil then db.party = db.field ~= false end
     if db.raid == nil then db.raid = db.field ~= false end
     if db.showAmbiguousByName == nil then db.showAmbiguousByName = true end
+    if db.debugMode == nil then db.debugMode = false end
     if db.showInterruptWhenCapped == nil then db.showInterruptWhenCapped = true end
     if db.classCategoryFilterEnabled == nil then db.classCategoryFilterEnabled = true end
     if db.showOutOfRangeInspectMessages == nil then db.showOutOfRangeInspectMessages = true end
@@ -139,10 +130,12 @@ function IcicleConfig.NormalizeProfile(db, baseCooldowns)
     db.inspectRetryInterval = math.max(0.2, math.min(5, tonumber(db.inspectRetryInterval) or 1.0))
     db.inspectMaxRetryTime = math.max(5, math.min(120, tonumber(db.inspectMaxRetryTime) or 30.0))
     if db.highlightInterrupts == nil then db.highlightInterrupts = true end
+    if db.interruptHighlightMode ~= "BORDER" and db.interruptHighlightMode ~= "ICON" then
+        db.interruptHighlightMode = "BORDER"
+    end
     if db.showBorders == nil then db.showBorders = false end
     db.priorityBorderSize = math.max(1, math.min(6, tonumber(db.priorityBorderSize) or 1))
     db.priorityBorderInset = math.max(-2, math.min(4, tonumber(db.priorityBorderInset) or 0))
-    db.priorityBorderPulseIntensity = math.max(0, math.min(1, tonumber(db.priorityBorderPulseIntensity) or 1))
     db.interruptBorderColor = db.interruptBorderColor or { r = 0.30, g = 0.65, b = 1.00, a = 1.00 }
     db.itemBorderColor = db.itemBorderColor or { r = 1.00, g = 0.82, b = 0.20, a = 1.00 }
     db.categoryBorderEnabled = db.categoryBorderEnabled or {}

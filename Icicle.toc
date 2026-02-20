@@ -13,7 +13,6 @@ Icicle.xml
 src\config\settings.lua
 src\core\IcicleConstants.lua
 src\data\IcicleData.lua
-src\ui\IcicleLocale.lua
 src\ui\IcicleTooltip.lua
 src\modules\IcicleCombat.lua
 src\ui\IcicleOptions.lua
@@ -26,6 +25,7 @@ src\modules\IcicleRender.lua
 src\modules\IcicleTestMode.lua
 src\modules\IcicleSpells.lua
 src\modules\IcicleSpec.lua
+src\modules\IcicleInspect.lua
 src\core\IcicleState.lua
 src\modules\IcicleEvents.lua
 src\ui\IcicleUIOptions.lua

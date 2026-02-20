@@ -253,13 +253,18 @@ function IcicleResolver.ResolveGroupTargets(ctx)
     if UnitExists("focus") then IcicleResolver.ResolveUnit(ctx, "focus", 0.95, "focus") end
     if UnitExists("mouseover") then IcicleResolver.ResolveUnit(ctx, "mouseover", 0.95, "mouseover") end
 
-    if GetNumRaidMembers and GetNumRaidMembers() > 0 then
-        for i = 1, 40 do
+    local raidCount = GetNumRaidMembers and GetNumRaidMembers() or 0
+    if raidCount > 0 then
+        for i = 1, raidCount do
             local unit = "raid" .. i .. "target"
             if UnitExists(unit) then IcicleResolver.ResolveUnit(ctx, unit, 0.8, "raid-target") end
         end
     else
-        for i = 1, 4 do
+        local partyCount = GetNumPartyMembers and GetNumPartyMembers() or 4
+        if partyCount <= 0 then
+            partyCount = 4
+        end
+        for i = 1, partyCount do
             local unit = "party" .. i .. "target"
             if UnitExists(unit) then IcicleResolver.ResolveUnit(ctx, unit, 0.75, "party-target") end
         end

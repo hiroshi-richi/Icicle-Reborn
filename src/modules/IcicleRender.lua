@@ -4,6 +4,52 @@ local tinsert, tremove, tsort = table.insert, table.remove, table.sort
 local min, sin = math.min, math.sin
 local GetTime = GetTime
 
+local function GetPlateBuffBlinkFactor(rec, now)
+    if not rec or not rec.expiresAt then
+        return 1
+    end
+    now = now or GetTime()
+    local remain = rec.expiresAt - now
+    if remain < 0 then
+        remain = 0
+    end
+    local bth = remain % 1
+    if bth > 0.5 then
+        bth = 1 - bth
+    end
+    bth = bth * 3
+    if bth < 0 then bth = 0 end
+    if bth > 1 then bth = 1 end
+    return bth
+end
+
+local function ApplyInterruptIconPulse(ctx, icon, rec, now)
+    if not icon or not icon.texture then
+        return
+    end
+    local mode = (ctx.db and ctx.db.interruptHighlightMode) or "BORDER"
+    local baseAlpha = (rec and rec.__ambiguous) and 0.45 or 1
+    local isInterruptPulseTarget = rec and rec.isInterrupt and ctx.db and ctx.db.highlightInterrupts and mode == "ICON"
+    local pulseFactor = isInterruptPulseTarget and GetPlateBuffBlinkFactor(rec, now) or 1
+
+    local alpha = baseAlpha
+    if isInterruptPulseTarget then
+        alpha = baseAlpha * pulseFactor
+    end
+    if alpha < 0 then alpha = 0 end
+    if alpha > 1 then alpha = 1 end
+
+    if icon._lastIconAlpha ~= alpha then
+        icon:SetAlpha(alpha)
+        icon._lastIconAlpha = alpha
+    end
+
+    if icon._lastIconTexR ~= 1 or icon._lastIconTexG ~= 1 or icon._lastIconTexB ~= 1 then
+        icon.texture:SetVertexColor(1, 1, 1, 1)
+        icon._lastIconTexR, icon._lastIconTexG, icon._lastIconTexB = 1, 1, 1
+    end
+end
+
 local function SortByExpire(a, b)
     return a.expiresAt < b.expiresAt
 end
@@ -67,20 +113,6 @@ local function BuildDisplaySlice(records, cap, preferInterrupt, out, interrupt, 
     return out
 end
 
-local CATEGORY_BORDER_DEFAULT_COLORS = {
-    GENERAL = { r = 0.62, g = 0.62, b = 0.62, a = 1.00 },
-    WARRIOR = { r = 0.780, g = 0.612, b = 0.431, a = 1.00 },
-    PALADIN = { r = 0.961, g = 0.549, b = 0.729, a = 1.00 },
-    HUNTER = { r = 0.671, g = 0.831, b = 0.451, a = 1.00 },
-    ROGUE = { r = 1.000, g = 0.961, b = 0.412, a = 1.00 },
-    PRIEST = { r = 1.00, g = 1.00, b = 1.00, a = 1.00 },
-    DEATH_KNIGHT = { r = 0.769, g = 0.122, b = 0.231, a = 1.00 },
-    SHAMAN = { r = 0.000, g = 0.439, b = 0.871, a = 1.00 },
-    MAGE = { r = 0.247, g = 0.780, b = 0.922, a = 1.00 },
-    WARLOCK = { r = 0.529, g = 0.533, b = 0.933, a = 1.00 },
-    DRUID = { r = 1.000, g = 0.490, b = 0.039, a = 1.00 },
-}
-
 local function ApplyPriorityBorder(ctx, icon, rec, now)
     if not icon then
         return
@@ -93,14 +125,16 @@ local function ApplyPriorityBorder(ctx, icon, rec, now)
     end
 
     local c = nil
-    local pulseEnabled = false
+    local mode = (ctx.db and ctx.db.interruptHighlightMode) or "BORDER"
+    local interruptBorderPulse = (mode == "BORDER") and ctx.db.highlightInterrupts and rec.isInterrupt
     local bordersEnabled = ctx.db.showBorders ~= false
     if ctx.SpellCategory and rec.spellID then
         local category = ctx.SpellCategory(rec.spellID)
         if category then
             local colorsMap = ctx.db.categoryBorderColors or {}
-            local categoryColor = colorsMap[category] or CATEGORY_BORDER_DEFAULT_COLORS[category]
-            if ctx.db.highlightInterrupts and rec.isInterrupt then
+            local defaultColors = ctx.CATEGORY_BORDER_DEFAULTS or {}
+            local categoryColor = colorsMap[category] or defaultColors[category] or defaultColors.GENERAL
+            if interruptBorderPulse then
                 c = categoryColor
             elseif bordersEnabled then
                 local enabledMap = ctx.db.categoryBorderEnabled or {}
@@ -112,36 +146,33 @@ local function ApplyPriorityBorder(ctx, icon, rec, now)
             end
         end
     end
-    if c and ctx.db.highlightInterrupts and rec.isInterrupt then
-        pulseEnabled = true
-    end
-
     if c then
-        local pulse = pulseEnabled and 1 or 0
         local baseA = c.a or 1
         local a = baseA
-        if pulse > 0 then
-            local wave = 0.5 + 0.5 * sin((now or GetTime()) * 7.0)
-            local floorA = 1 - pulse
-            a = baseA * (floorA + (pulse * wave))
+        now = now or GetTime()
+        local pulseActive = false
+        if interruptBorderPulse then
+            local wave = 0.5 + 0.5 * sin(now * 7.0)
+            a = baseA * wave
+            pulseActive = true
         end
         local r, g, b = c.r or 1, c.g or 1, c.b or 1
         local colorChanged = (icon._lastBorderR ~= r) or (icon._lastBorderG ~= g) or (icon._lastBorderB ~= b) or (icon._lastBorderA ~= a)
-        if pulseEnabled or colorChanged or not icon._borderVisible then
+        if pulseActive or colorChanged or not icon._borderVisible then
             if hasSingleBorder and icon.border then
-                if colorChanged or pulseEnabled then
+                if colorChanged or pulseActive then
                     icon.border:SetVertexColor(r, g, b, a)
                 end
                 icon.border:Show()
             end
             if hasFrameBorder and icon.borderFrame then
-                if icon.borderSkin and (colorChanged or pulseEnabled) then
+                if icon.borderSkin and (colorChanged or pulseActive) then
                     icon.borderSkin:SetVertexColor(r, g, b, a)
                 end
                 icon.borderFrame:Show()
             end
             if hasEdgeBorder then
-                if colorChanged or pulseEnabled then
+                if colorChanged or pulseActive then
                     icon.borderEdges.top:SetVertexColor(r, g, b, a)
                     icon.borderEdges.bottom:SetVertexColor(r, g, b, a)
                     icon.borderEdges.left:SetVertexColor(r, g, b, a)
@@ -278,7 +309,7 @@ function IcicleRender.RenderPlate(ctx, meta)
         end
         icon.record = rec
         icon.isOverflow = nil
-        icon:SetAlpha(rec.__ambiguous and 0.45 or 1)
+        ApplyInterruptIconPulse(ctx, icon, rec, now)
         if rec.__ambiguous then icon.ambiguousMark:Show() else icon.ambiguousMark:Hide() end
         ApplyPriorityBorder(ctx, icon, rec, now)
         icon:Show()
@@ -300,6 +331,11 @@ function IcicleRender.RenderPlate(ctx, meta)
             last.record = { spellID = 0, spellName = "Overflow", expiresAt = now + 9999 }
             last.isOverflow = true
             last:SetAlpha(1)
+            last._lastIconAlpha = 1
+            last.texture:SetVertexColor(1, 1, 1, 1)
+            last._lastIconTexR, last._lastIconTexG, last._lastIconTexB = 1, 1, 1
+            last._interruptPulseSecond = nil
+            last._interruptPulseUntil = nil
             last.ambiguousMark:Hide()
             if last.border then last.border:Hide() end
             if last.borderFrame then last.borderFrame:Hide() end
@@ -321,7 +357,13 @@ function IcicleRender.RenderPlate(ctx, meta)
             icon._lastTexture = nil
             icon._lastCooldownText = nil
             icon._lastR, icon._lastG, icon._lastB = nil, nil, nil
+            icon.texture:SetVertexColor(1, 1, 1, 1)
+            icon._lastIconTexR, icon._lastIconTexG, icon._lastIconTexB = 1, 1, 1
+            icon._lastIconAlpha = nil
             icon._lastBorderR, icon._lastBorderG, icon._lastBorderB, icon._lastBorderA = nil, nil, nil, nil
+            icon._interruptPulseSecond = nil
+            icon._interruptPulseUntil = nil
+            icon._interruptPulseWindow = nil
             icon._borderVisible = false
             icon.ambiguousMark:Hide()
             if icon.border then icon.border:Hide() end
@@ -432,9 +474,8 @@ function IcicleRender.OnUpdate(ctx, elapsed)
                             local rec = icon.record
                             if rec and not icon.isOverflow then
                                 if now < (icon._nextTextUpdateAt or 0) then
-                                    if rec.isInterrupt and ctx.db.highlightInterrupts then
-                                        ApplyPriorityBorder(ctx, icon, rec, now)
-                                    end
+                                    ApplyInterruptIconPulse(ctx, icon, rec, now)
+                                    ApplyPriorityBorder(ctx, icon, rec, now)
                                 else
                                 local remain = rec.expiresAt - now
                                 local cooldownText = ctx.FormatRemaining(remain)
@@ -452,9 +493,8 @@ function IcicleRender.OnUpdate(ctx, elapsed)
                                 else
                                     icon._nextTextUpdateAt = now + 0.10
                                 end
-                                if rec.isInterrupt and ctx.db.highlightInterrupts then
-                                    ApplyPriorityBorder(ctx, icon, rec, now)
-                                end
+                                ApplyInterruptIconPulse(ctx, icon, rec, now)
+                                ApplyPriorityBorder(ctx, icon, rec, now)
                                 end
                             end
                         end

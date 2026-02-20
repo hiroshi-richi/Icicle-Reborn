@@ -47,6 +47,7 @@ local CooldownRulesModule = RequireTable("IcicleCooldownRules", IcicleCooldownRu
 local TestModeModule = RequireTable("IcicleTestMode", IcicleTestMode)
 local SpellsModule = RequireTable("IcicleSpells", IcicleSpells)
 local SpecModule = RequireTable("IcicleSpec", IcicleSpec)
+local InspectModule = RequireTable("IcicleInspect", IcicleInspect)
 local StateModule = RequireTable("IcicleState", IcicleState)
 local EventsModule = RequireTable("IcicleEvents", IcicleEvents)
 local UIOptionsModule = RequireTable("IcicleUIOptions", IcicleUIOptions)
@@ -85,7 +86,11 @@ RequireFunction("IcicleTestMode", TestModeModule, "ToggleTestMode")
 RequireFunction("IcicleSpells", SpellsModule, "BuildSpellRowsData")
 RequireFunction("IcicleSpec", SpecModule, "PruneExpiredHints")
 RequireFunction("IcicleSpec", SpecModule, "UpdateFromInspectTalents")
+RequireFunction("IcicleInspect", InspectModule, "QueueInspectForUnit")
+RequireFunction("IcicleInspect", InspectModule, "ProcessInspectQueue")
+RequireFunction("IcicleInspect", InspectModule, "HandleInspectTalentReady")
 RequireFunction("IcicleState", StateModule, "BuildInitialState")
+RequireFunction("IcicleState", StateModule, "ResetRuntimeState")
 RequireFunction("IcicleEvents", EventsModule, "HandleEvent")
 RequireFunction("IcicleUIOptions", UIOptionsModule, "BuildOptionsPanel")
 RequireFunction("IcicleBootstrap", BootstrapModule, "BuildInternalAPI")
@@ -117,6 +122,14 @@ if type(DataModule.BASE_COOLDOWNS) ~= "table" then
 end
 local function Print(msg)
     DEFAULT_CHAT_FRAME:AddMessage("|cffFF7D0A[" .. ADDON_NAME .. "]|r: " .. tostring(msg))
+end
+
+local function DebugStatePrint(enabled, reason)
+    if not db or not db.debugMode then
+        return
+    end
+    local stateText = enabled and "enabled" or "disabled"
+    Print("debug: addon " .. stateText .. " (" .. tostring(reason or "unknown") .. ")")
 end
 
 local function ShortName(name)
@@ -567,17 +580,22 @@ local function ResolveSpellIDByName(spellName, spellRank, classToken)
     return best and best.id or nil
 end
 
-local function IsEnabledInCurrentZone()
-    if not db then return false end
-    local _, zoneType = IsInInstance()
-
-    if db.all then return true end
+local function IsEnabledForZoneType(zoneType)
+    zoneType = (zoneType and zoneType ~= "" and zoneType) or "none"
     if zoneType == "arena" then return db.arena end
     if zoneType == "pvp" then return db.battleground end
     if zoneType == "party" then return db.party end
     if zoneType == "raid" then return db.raid end
     return db.field
 end
+
+local function IsEnabledInCurrentZone()
+    if not db then return false end
+    local _, zoneType = IsInInstance()
+    return IsEnabledForZoneType(zoneType)
+end
+
+local ZONE_STATE_DEBOUNCE_SEC = 2.0
 
 COOLDOWN_RULES_CONTEXT = {
     db = nil,
@@ -979,6 +997,7 @@ end
 RENDER_CONTEXT = {
     STATE = STATE,
     db = nil,
+    CATEGORY_BORDER_DEFAULTS = ConstantsModule.CATEGORY_BORDER_DEFAULTS,
     DecayedConfidence = DecayedConfidence,
     ApplyContainerAnchor = ApplyContainerAnchor,
     ReleaseIcons = ReleaseIcons,
@@ -1350,6 +1369,7 @@ end
 BuildOptionsPanel = function()
     return UIOptionsModule.BuildOptionsPanel({
         STATE = STATE,
+        CATEGORY_BORDER_DEFAULTS = ConstantsModule.CATEGORY_BORDER_DEFAULTS,
         AceConfig = AceConfig,
         AceConfigDialog = AceConfigDialog,
         AceDBOptions = AceDBOptions,
@@ -1384,19 +1404,45 @@ BuildOptionsPanel = function()
 end
 
 local function OnUpdate(_, elapsed)
-    local zoneEnabled = IsEnabledInCurrentZone()
+    local _, zoneTypeRaw = IsInInstance()
+    local zoneEnabled = db and IsEnabledForZoneType(zoneTypeRaw) or false
     local testActive = STATE.testModeActive and true or false
-    if (not zoneEnabled) and (not testActive) then
-        if not STATE.zoneSuppressed then
+    local zoneType = (zoneTypeRaw and zoneTypeRaw ~= "" and zoneTypeRaw) or "world"
+    if testActive then
+        STATE.zoneDisableAccum = 0
+        STATE.zoneEnableAccum = 0
+        if STATE.zoneSuppressed then
+            STATE.zoneSuppressed = false
+            DebugStatePrint(true, "test mode active")
+            ScanNameplates()
+            RefreshAllVisiblePlates()
+        end
+    elseif zoneEnabled then
+        STATE.zoneDisableAccum = 0
+        STATE.zoneEnableAccum = (STATE.zoneEnableAccum or 0) + elapsed
+        if STATE.zoneSuppressed then
+            if STATE.zoneEnableAccum >= ZONE_STATE_DEBOUNCE_SEC then
+                STATE.zoneSuppressed = false
+                STATE.zoneEnableAccum = 0
+                DebugStatePrint(true, "zone enabled (" .. zoneType .. ")")
+                ScanNameplates()
+                RefreshAllVisiblePlates()
+            else
+                return
+            end
+        end
+    else
+        STATE.zoneEnableAccum = 0
+        STATE.zoneDisableAccum = (STATE.zoneDisableAccum or 0) + elapsed
+        if not STATE.zoneSuppressed and STATE.zoneDisableAccum >= ZONE_STATE_DEBOUNCE_SEC then
             STATE.zoneSuppressed = true
+            STATE.zoneDisableAccum = 0
+            DebugStatePrint(false, "zone disabled by filters (" .. zoneType .. ")")
             SuppressAllPlateVisuals()
         end
-        return
-    end
-    if STATE.zoneSuppressed then
-        STATE.zoneSuppressed = false
-        ScanNameplates()
-        RefreshAllVisiblePlates()
+        if STATE.zoneSuppressed then
+            return
+        end
     end
 
     if db and db.specDetectEnabled then
@@ -1534,233 +1580,35 @@ local function ShouldSuppressUnitCast(unitKey, spellID)
     return false
 end
 
-local function RemoveInspectQueueEntryAt(index)
-    local entry = STATE.inspectQueue[index]
-    if not entry then
-        return
-    end
-    STATE.inspectQueuedByGUID[entry.guid] = nil
-    tremove(STATE.inspectQueue, index)
-end
+local INSPECT_CONTEXT = {
+    STATE = STATE,
+    db = nil,
+    Print = Print,
+    WipeTable = WipeTable,
+    SpecModule = SpecModule,
+    SyncSpecContext = SyncSpecContext,
+    SPEC_CONTEXT = SPEC_CONTEXT,
+    RefreshAllVisiblePlates = RefreshAllVisiblePlates,
+    ShortName = ShortName,
+}
 
-local function RemoveInspectQueueByGUID(guid)
-    if not guid then
-        return
-    end
-    for i = #STATE.inspectQueue, 1, -1 do
-        local entry = STATE.inspectQueue[i]
-        if entry and entry.guid == guid then
-            RemoveInspectQueueEntryAt(i)
-        end
-    end
-    STATE.inspectQueuedByGUID[guid] = nil
+local function SyncInspectContext()
+    INSPECT_CONTEXT.db = db
 end
 
 local function QueueInspectForUnit(unit)
-    if not unit or unit == "" or not UnitExists(unit) or not NotifyInspect then
-        return
-    end
-    local guid = UnitGUID(unit)
-    if not guid then
-        return
-    end
-
-    if STATE.inspectQueuedByGUID[guid] then
-        for i = 1, #STATE.inspectQueue do
-            local entry = STATE.inspectQueue[i]
-            if entry and entry.guid == guid then
-                entry.unit = unit
-                entry.lastSeen = GetTime()
-                break
-            end
-        end
-        return
-    end
-
-    local now = GetTime()
-    STATE.inspectQueue[#STATE.inspectQueue + 1] = {
-        guid = guid,
-        unit = unit,
-        enqueuedAt = now,
-        lastTryAt = 0,
-        lastSeen = now,
-    }
-    STATE.inspectQueuedByGUID[guid] = true
-end
-
-local function IsInspectUnitInRange(unit)
-    if not unit or not UnitExists(unit) then
-        return false
-    end
-    if CheckInteractDistance then
-        local inRange = CheckInteractDistance(unit, 1)
-        if inRange == 1 then
-            return true
-        end
-        if inRange == 0 then
-            return false
-        end
-    end
-    if CanInspect then
-        return CanInspect(unit, true) and true or false
-    end
-    return true
-end
-
-local function RecordInspectOutOfRangeUnit(guid, unit)
-    if not guid then
-        return
-    end
-    STATE.inspectOutOfRangeUnits[guid] = tostring(UnitName(unit) or guid)
-end
-
-local function FlushInspectOutOfRangeMessage()
-    if not db or not db.showOutOfRangeInspectMessages then
-        WipeTable(STATE.inspectOutOfRangeUnits)
-        return
-    end
-
-    local names = {}
-    for _, unitName in pairs(STATE.inspectOutOfRangeUnits) do
-        names[#names + 1] = tostring(unitName)
-    end
-    WipeTable(STATE.inspectOutOfRangeUnits)
-
-    if #names == 0 then
-        return
-    end
-
-    table.sort(names)
-    Print("Inspect skipped (out of range): " .. table.concat(names, ", "))
+    SyncInspectContext()
+    return InspectModule.QueueInspectForUnit(INSPECT_CONTEXT, unit)
 end
 
 ProcessInspectQueue = function()
-    if not db or not NotifyInspect or #STATE.inspectQueue == 0 then
-        return
-    end
-
-    if STATE.inspectCurrent then
-        local active = STATE.inspectCurrent
-        local maxRetry = tonumber(db.inspectMaxRetryTime) or 30
-        if (GetTime() - (active.requestedAt or 0)) > maxRetry then
-            if ClearInspectPlayer then
-                ClearInspectPlayer()
-            end
-            STATE.inspectCurrent = nil
-            STATE.inspectUnitByGUID[active.guid] = nil
-            RemoveInspectQueueByGUID(active.guid)
-            STATE.inspectOutOfRangeSince[active.guid] = nil
-        end
-        return
-    end
-
-    local now = GetTime()
-    local retryInterval = tonumber(db.inspectRetryInterval) or 1.0
-    local maxRetry = tonumber(db.inspectMaxRetryTime) or 30
-    local selectedIndex = nil
-
-    for i = 1, #STATE.inspectQueue do
-        local entry = STATE.inspectQueue[i]
-        if entry then
-            local unit = entry.unit
-            local guid = entry.guid
-            local tooOld = (now - (entry.enqueuedAt or now)) > maxRetry
-            if tooOld then
-                if STATE.inspectOutOfRangeSince[guid] then
-                    RecordInspectOutOfRangeUnit(guid, unit)
-                end
-                RemoveInspectQueueEntryAt(i)
-                break
-            end
-
-            if not unit or not UnitExists(unit) or UnitGUID(unit) ~= guid then
-                RemoveInspectQueueEntryAt(i)
-                break
-            end
-
-            if not IsInspectUnitInRange(unit) then
-                if not STATE.inspectOutOfRangeSince[guid] then
-                    STATE.inspectOutOfRangeSince[guid] = now
-                end
-                if (now - STATE.inspectOutOfRangeSince[guid]) >= maxRetry then
-                    RecordInspectOutOfRangeUnit(guid, unit)
-                    RemoveInspectQueueEntryAt(i)
-                    STATE.inspectOutOfRangeSince[guid] = nil
-                    break
-                end
-            else
-                STATE.inspectOutOfRangeSince[guid] = nil
-                if not selectedIndex and (now - (entry.lastTryAt or 0)) >= retryInterval then
-                    selectedIndex = i
-                end
-            end
-        end
-    end
-
-    if next(STATE.inspectOutOfRangeUnits) then
-        FlushInspectOutOfRangeMessage()
-    end
-
-    if not selectedIndex then
-        return
-    end
-
-    local entry = STATE.inspectQueue[selectedIndex]
-    if not entry then
-        return
-    end
-    entry.lastTryAt = now
-    STATE.inspectRequestAtByGUID[entry.guid] = now
-    STATE.inspectUnitByGUID[entry.guid] = entry.unit
-    STATE.inspectCurrent = { guid = entry.guid, unit = entry.unit, requestedAt = now }
-    NotifyInspect(entry.unit)
+    SyncInspectContext()
+    return InspectModule.ProcessInspectQueue(INSPECT_CONTEXT)
 end
 
 local function HandleInspectTalentReady(guid)
-    if not guid or guid == "" then
-        STATE.inspectCurrent = nil
-        return
-    end
-    local unit = STATE.inspectUnitByGUID[guid]
-    if not unit or not UnitExists(unit) or UnitGUID(unit) ~= guid then
-        STATE.inspectUnitByGUID[guid] = nil
-        STATE.inspectCurrent = nil
-        RemoveInspectQueueByGUID(guid)
-        STATE.inspectOutOfRangeSince[guid] = nil
-        return
-    end
-    local name, classToken = UnitClass(unit)
-    if not classToken then
-        STATE.inspectUnitByGUID[guid] = nil
-        STATE.inspectCurrent = nil
-        RemoveInspectQueueByGUID(guid)
-        STATE.inspectOutOfRangeSince[guid] = nil
-        return
-    end
-    local bestTab, bestPoints = nil, -1
-    for tabIndex = 1, 3 do
-        local _, _, pointsSpent = GetTalentTabInfo(tabIndex, true, false, 1)
-        pointsSpent = tonumber(pointsSpent) or 0
-        if pointsSpent > bestPoints then
-            bestPoints = pointsSpent
-            bestTab = tabIndex
-        end
-    end
-    if bestTab and bestPoints >= 0 then
-        SyncSpecContext()
-        local changed = SpecModule.UpdateFromInspectTalents(SPEC_CONTEXT, guid, ShortName(name), classToken, bestTab)
-        if changed then
-            RefreshAllVisiblePlates()
-        end
-    end
-    STATE.inspectUnitByGUID[guid] = nil
-    STATE.inspectCurrent = nil
-    STATE.inspectOutOfRangeSince[guid] = nil
-    STATE.inspectOutOfRangeUnits[guid] = nil
-    RemoveInspectQueueByGUID(guid)
-    if ClearInspectPlayer then
-        ClearInspectPlayer()
-    end
+    SyncInspectContext()
+    return InspectModule.HandleInspectTalentReady(INSPECT_CONTEXT, guid)
 end
 
 local function RecordCombatReaction(sourceGUID, sourceName, reaction)
@@ -1815,6 +1663,9 @@ local EVENTS_CONTEXT = {
     StartCooldown = StartCooldown,
     OnUpdate = OnUpdate,
     BuildOptionsPanel = BuildOptionsPanel,
+    ResetRuntimeState = function()
+        StateModule.ResetRuntimeState(STATE, WipeTable)
+    end,
     Print = Print,
     aceDBRef = { value = nil },
     dbRef = { value = nil },

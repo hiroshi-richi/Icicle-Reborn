@@ -65,41 +65,9 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
     end
 
     if event == "PLAYER_ENTERING_WORLD" then
-        ctx.WipeTable(ctx.STATE.plateByGUID)
-        ctx.WipeTable(ctx.STATE.guidByPlate)
-        ctx.WipeTable(ctx.STATE.candidatesByName)
-        ctx.STATE.pendingBindByGUID = ctx.STATE.pendingBindByGUID or {}
-        ctx.WipeTable(ctx.STATE.pendingBindByGUID)
-        ctx.WipeTable(ctx.STATE.recentEventByUnit)
-        ctx.WipeTable(ctx.STATE.recentUnitSucceededByUnit)
-        ctx.WipeTable(ctx.STATE.lastSpecAuraCheckByGUID)
-        ctx.WipeTable(ctx.STATE.spellCategoryCache)
-        ctx.WipeTable(ctx.STATE.classByGUID)
-        ctx.WipeTable(ctx.STATE.classByName)
-        ctx.WipeTable(ctx.STATE.reactionByGUID)
-        ctx.WipeTable(ctx.STATE.reactionByName)
-        ctx.WipeTable(ctx.STATE.reactionByPlate)
-        ctx.WipeTable(ctx.STATE.reactionSourceByGUID)
-        ctx.WipeTable(ctx.STATE.reactionSourceByName)
-        ctx.WipeTable(ctx.STATE.reactionSourceByPlate)
-        ctx.WipeTable(ctx.STATE.inspectUnitByGUID)
-        ctx.WipeTable(ctx.STATE.inspectRequestAtByGUID)
-        ctx.WipeTable(ctx.STATE.inspectQueue)
-        ctx.WipeTable(ctx.STATE.inspectQueuedByGUID)
-        ctx.WipeTable(ctx.STATE.inspectOutOfRangeSince)
-        ctx.WipeTable(ctx.STATE.inspectOutOfRangeUnits)
-        ctx.WipeTable(ctx.STATE.feignDeathAuraByGUID)
-        ctx.WipeTable(ctx.STATE.dirtyPlates)
-        ctx.WipeTable(ctx.STATE.dirtyPlateList)
-        ctx.STATE.dirtyPlateCount = 0
-        ctx.WipeTable(ctx.STATE.visiblePlateList)
-        ctx.WipeTable(ctx.STATE.visiblePlateIndexByRef)
-        ctx.STATE.visiblePlateCount = 0
-        ctx.WipeTable(ctx.STATE.expiryHeap)
-        ctx.STATE.expiryCount = 0
-        ctx.STATE.expirySeq = 0
-        ctx.STATE.lastWorldChildrenCount = 0
-        ctx.STATE.inspectCurrent = nil
+        if ctx.ResetRuntimeState then
+            ctx.ResetRuntimeState()
+        end
         ctx.ScanNameplates()
         ctx.RefreshAllVisiblePlates()
         return
