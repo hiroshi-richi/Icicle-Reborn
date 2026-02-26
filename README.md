@@ -57,6 +57,23 @@ Panels:
 - Same-name units (most commonly pets/guardians) can remain ambiguous until stronger mapping signals appear.
 - Castbar correlation depends on cast text visibility and event timing.
 
+## Resolver tuning quick guide
+
+Resolver heuristics are implemented in `src/modules/IcicleResolver.lua` (`RESOLVER_TUNING` and `TunedNumber`).
+
+Most important knobs:
+- `castMatchUniqueConfidence`: confidence for strict single cast-match bind.
+- `castMatchNearestConfidence`: confidence when nearest cast match clearly wins.
+- `castMatchLatestConfidence`: confidence for latest-cast fallback bind.
+- `castNearestMinGap`: minimum timing gap required to accept nearest tie-break.
+- `candidateTTLMultiplier`: how long candidate GUIDs are retained per name.
+- `pendingBindMinTTL`: minimum pending bind lifetime.
+
+Safe tuning order:
+1. Adjust `castNearestMinGap` first (reduces wrong binds in same-name scenarios).
+2. Tune confidence values (`castMatch*Confidence`) second.
+3. Tune retention values (`candidateTTLMultiplier`, `pendingBindMinTTL`) last.
+
 ## Quick release checklist
 
 1. Enter combat and confirm enemy cooldown icons appear when casts happen.

@@ -1,6 +1,37 @@
 IcicleResolver = IcicleResolver or {}
 
 local GetTime = GetTime
+local abs = math.abs
+local max = math.max
+
+-- Resolver-only heuristics (not exposed in UI). Values are conservative defaults
+-- tuned for multi-target arena ambiguity without delaying obvious bindings.
+local RESOLVER_TUNING = {
+    candidateTTLMultiplier = 2.0,
+    pendingBindMinTTL = 2.0,
+    castMatchUniqueConfidence = 0.98,
+    castMatchNearestConfidence = 0.96,
+    castMatchLatestConfidence = 0.92,
+    castMatchLatestWindowMultiplier = 2.0,
+    castMatchLatestWindowMin = 0.15,
+    castNearestMinGap = 0.06,
+}
+
+local function TunedNumber(ctx, key, fallback, minValue, maxValue)
+    local value = fallback
+    local db = ctx and ctx.db
+    if db and type(db.resolverTuning) == "table" and tonumber(db.resolverTuning[key]) then
+        value = tonumber(db.resolverTuning[key])
+    end
+    value = tonumber(value) or fallback
+    if minValue ~= nil and value < minValue then
+        value = minValue
+    end
+    if maxValue ~= nil and value > maxValue then
+        value = maxValue
+    end
+    return value
+end
 
 local function UnitReactionCategory(unit)
     if not unit or unit == "" or not UnitExists(unit) then
@@ -46,7 +77,8 @@ end
 
 local function PruneCandidateGuids(ctx)
     local now = GetTime()
-    local ttl = (ctx.db and ctx.db.mappingTTL or 8) * 2
+    local ttlMultiplier = TunedNumber(ctx, "candidateTTLMultiplier", RESOLVER_TUNING.candidateTTLMultiplier, 1.0, 5.0)
+    local ttl = (ctx.db and ctx.db.mappingTTL or 8) * ttlMultiplier
     for name, guids in pairs(ctx.STATE.candidatesByName) do
         for guid, seenAt in pairs(guids) do
             if (now - (seenAt or 0)) > ttl then
@@ -118,12 +150,13 @@ function IcicleResolver.RegisterPendingBind(ctx, guid, name, spellName, eventTim
     end
     ctx.STATE.pendingBindByGUID = ctx.STATE.pendingBindByGUID or {}
     local now = GetTime()
+    local minTTL = TunedNumber(ctx, "pendingBindMinTTL", RESOLVER_TUNING.pendingBindMinTTL, 0.5, 10.0)
     ctx.STATE.pendingBindByGUID[guid] = {
         name = name,
         spellName = spellName,
         eventTime = eventTime or now,
         createdAt = now,
-        expiresAt = now + math.max(2, (ctx.db and ctx.db.mappingTTL or 8)),
+        expiresAt = now + max(minTTL, (ctx.db and ctx.db.mappingTTL or 8)),
     }
 end
 
@@ -169,17 +202,14 @@ function IcicleResolver.TryBindByName(ctx, guid, name, baseConf, reason, spellNa
     end
 
     if spellName then
-        local candidatePlate, candidateCount = nil, 0
+        local castWindow = max(0.05, tonumber(ctx.db and ctx.db.castMatchWindow) or 0.25)
+        local nearestPlate, nearestDelta, secondNearestDelta, candidateCount = nil, nil, nil, 0
         local latestPlate, latestCount, latestAt = nil, 0, 0
         for plate in pairs(plates.map) do
             local reaction = PlateReaction(ctx, plate)
             local reactionAllowed = reaction ~= "friendly"
             if reactionAllowed then
                 local meta = ctx.STATE.plateMeta[plate]
-                if meta and meta.lastCastAt and math.abs(meta.lastCastAt - eventTime) <= ctx.db.castMatchWindow and meta.lastCastSpell == spellName then
-                    candidateCount = candidateCount + 1
-                    candidatePlate = plate
-                end
                 if meta and meta.lastCastSpell == spellName and meta.lastCastAt and meta.lastCastAt > latestAt then
                     latestAt = meta.lastCastAt
                     latestPlate = plate
@@ -187,13 +217,37 @@ function IcicleResolver.TryBindByName(ctx, guid, name, baseConf, reason, spellNa
                 elseif meta and meta.lastCastSpell == spellName and meta.lastCastAt and meta.lastCastAt == latestAt and latestAt > 0 then
                     latestCount = latestCount + 1
                 end
+                if meta and meta.lastCastAt and meta.lastCastSpell == spellName then
+                    local delta = abs(meta.lastCastAt - eventTime)
+                    if delta <= castWindow then
+                        candidateCount = candidateCount + 1
+                        if nearestDelta == nil or delta < nearestDelta then
+                            secondNearestDelta = nearestDelta
+                            nearestDelta = delta
+                            nearestPlate = plate
+                        elseif secondNearestDelta == nil or delta < secondNearestDelta then
+                            secondNearestDelta = delta
+                        end
+                    end
+                end
             end
         end
         if candidateCount == 1 then
-            return IcicleResolver.SetBinding(ctx, guid, candidatePlate, 0.98, "castbar", name)
+            local conf = TunedNumber(ctx, "castMatchUniqueConfidence", RESOLVER_TUNING.castMatchUniqueConfidence, 0.80, 1.0)
+            return IcicleResolver.SetBinding(ctx, guid, nearestPlate, conf, "castbar", name)
         end
-        if candidateCount == 0 and latestPlate and latestCount == 1 and (GetTime() - latestAt) <= math.max(0.15, (ctx.db.castMatchWindow or 0.25) * 2) then
-            return IcicleResolver.SetBinding(ctx, guid, latestPlate, 0.92, "castbar-latest", name)
+        if candidateCount > 1 and nearestPlate and nearestDelta and secondNearestDelta then
+            local minGap = TunedNumber(ctx, "castNearestMinGap", RESOLVER_TUNING.castNearestMinGap, 0.01, 0.20)
+            if (secondNearestDelta - nearestDelta) >= minGap then
+                local conf = TunedNumber(ctx, "castMatchNearestConfidence", RESOLVER_TUNING.castMatchNearestConfidence, 0.80, 1.0)
+                return IcicleResolver.SetBinding(ctx, guid, nearestPlate, conf, "castbar-nearest", name)
+            end
+        end
+        local latestWindowMultiplier = TunedNumber(ctx, "castMatchLatestWindowMultiplier", RESOLVER_TUNING.castMatchLatestWindowMultiplier, 1.0, 4.0)
+        local latestWindowMin = TunedNumber(ctx, "castMatchLatestWindowMin", RESOLVER_TUNING.castMatchLatestWindowMin, 0.05, 0.5)
+        if candidateCount == 0 and latestPlate and latestCount == 1 and (GetTime() - latestAt) <= max(latestWindowMin, castWindow * latestWindowMultiplier) then
+            local conf = TunedNumber(ctx, "castMatchLatestConfidence", RESOLVER_TUNING.castMatchLatestConfidence, 0.75, 1.0)
+            return IcicleResolver.SetBinding(ctx, guid, latestPlate, conf, "castbar-latest", name)
         end
     end
 
