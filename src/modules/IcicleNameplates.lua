@@ -145,7 +145,7 @@ function IcicleNameplates.ScanNameplates(ctx)
     local shouldDiscover = fullRescan
     if not shouldDiscover then
         local pending = ctx.STATE.pendingBindByGUID and next(ctx.STATE.pendingBindByGUID) ~= nil
-        local interval = pending and 0.20 or 1.00
+        local interval = pending and 0.20 or 0.35
         if now - (ctx.STATE.lastPlateDiscoveryAt or 0) >= interval then
             shouldDiscover = true
         end
@@ -223,7 +223,7 @@ function IcicleNameplates.ScanNameplates(ctx)
                 end
 
                 if meta.castBar and meta.castBar:IsShown() then
-                    if (not meta._lastCastProbeAt) or (now - meta._lastCastProbeAt) >= 0.08 then
+                    if (not meta._lastCastProbeAt) or (now - meta._lastCastProbeAt) >= 0.05 then
                         meta._lastCastProbeAt = now
                         local castSpell = IcicleNameplates.GetCastSpellFromBar(meta.castBar)
                         if castSpell and castSpell ~= "" then

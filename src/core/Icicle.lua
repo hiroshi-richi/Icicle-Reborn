@@ -946,6 +946,9 @@ local RESOLVER_CONTEXT = {
     ShortName = ShortName,
     ClassTokenToCategory = ClassTokenToCategory,
     RegisterExpiryRecord = RegisterExpiryRecord,
+    MarkDirtyBySource = MarkDirtyBySource,
+    RefreshDirtyPlates = RefreshDirtyPlates,
+    RefreshAllVisiblePlates = nil,
 }
 
 local function SyncResolverContext()
@@ -1031,6 +1034,8 @@ local function RefreshAllVisiblePlates()
     SyncRenderContext()
     return RenderModule.RefreshAllVisiblePlates(RENDER_CONTEXT)
 end
+
+RESOLVER_CONTEXT.RefreshAllVisiblePlates = RefreshAllVisiblePlates
 
 local function SuppressAllPlateVisuals()
     for plate, meta in pairs(STATE.plateMeta) do
@@ -1430,6 +1435,7 @@ BuildOptionsPanel = function()
         UpdateAdvancedSpecEvents = UpdateAdvancedSpecEvents,
         GetBaseSpellEntry = GetBaseSpellEntry,
         ResetAllCooldowns = ResetAllCooldowns,
+        ConfigModule = ConfigModule,
     })
 end
 
@@ -1723,6 +1729,4 @@ end
 
 addon:RegisterEvent("PLAYER_LOGIN")
 addon:SetScript("OnEvent", HandleEvent)
-
-
 

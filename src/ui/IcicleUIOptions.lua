@@ -103,11 +103,28 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
     end
 
     local root = BuildRootGroup(addonVersion)
+    local performanceModeValues = (ctx.ConfigModule and ctx.ConfigModule.GetPerformanceModeOptions and ctx.ConfigModule.GetPerformanceModeOptions()) or {
+        BATTERY = "1. Battery Saver (Slowest)",
+        LOW_END = "2. Low-End PC",
+        BALANCED = "3. Balanced",
+        HIGH_END = "4. High-End PC",
+        ARENA = "5. Arena (Fastest)",
+    }
+    local performanceModeSorting = (ctx.ConfigModule and ctx.ConfigModule.GetPerformanceModeOrder and ctx.ConfigModule.GetPerformanceModeOrder()) or {
+        "BATTERY",
+        "LOW_END",
+        "BALANCED",
+        "HIGH_END",
+        "ARENA",
+    }
 
     local function OptionsSet(info, value)
         local db = DB()
         local key = info[#info]
         db[key] = value
+        if key == "performanceMode" and ctx.ConfigModule and ctx.ConfigModule.ApplyPerformanceMode then
+            ctx.ConfigModule.ApplyPerformanceMode(db, value)
+        end
         if key == "specDetectEnabled" and ctx.UpdateAdvancedSpecEvents then
             ctx.UpdateAdvancedSpecEvents()
         end
@@ -178,22 +195,23 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
                         ICON = "Icon pulses",
                     },
                 },
-                sepInterrupt = { type = "description", order = 4.4, name = " ", width = "full" },
+                sep3 = { type = "description", order = 4.4, name = " ", width = "full" },
 
-                performanceHeader = { type = "header", order = 5, name = "Performance" },
-                scanInterval = { type = "range", order = 5.1, name = "Scan interval", desc = "How often nameplates are scanned for updates.", min = 0.10, max = 0.50, step = 0.01 },
-                iconUpdateInterval = { type = "range", order = 5.2, name = "Icon update interval", desc = "How often cooldown texts/colors are refreshed.", min = 0.05, max = 0.30, step = 0.01 },
-                groupScanInterval = { type = "range", order = 5.3, name = "Group signal scan", desc = "How often group targets are used to resolve GUID/nameplate mapping.", min = 0.10, max = 1.00, step = 0.05 },
-                sep3 = { type = "description", order = 5.4, name = " ", width = "full" },
-
-                filtersHeader = { type = "header", order = 6.0, name = "Filters" },
-                minTrackedCooldown = { type = "range", order = 6.1, name = "Min tracked cooldown (sec)", desc = "Ignore spells with cooldown below this value.", min = 0, max = 600, step = 1 },
-                maxTrackedCooldown = { type = "range", order = 6.2, name = "Max tracked cooldown (sec, 0=off)", desc = "Ignore spells with cooldown above this value (0 disables max filter).", min = 0, max = 1800, step = 5 },
-                sep4 = { type = "description", order = 6.3, name = " ", width = "full" },
-
-                inspectHeader = { type = "header", order = 7, name = "Inspect" },
-                inspectRetryInterval = { type = "range", order = 7.1, name = "Inspect retry interval", desc = "Delay between inspect retries while waiting for spec data.", min = 0.2, max = 5.0, step = 0.1 },
-                inspectMaxRetryTime = { type = "range", order = 7.2, name = "Inspect max retry time", desc = "Maximum time to keep retrying inspect before giving up.", min = 5, max = 120, step = 1 },
+                filtersHeader = { type = "header", order = 5, name = "Filters" },
+                minTrackedCooldown = { type = "range", order = 5.1, name = "Min tracked cooldown (sec)", desc = "Ignore spells with cooldown below this value.", min = 0, max = 600, step = 1 },
+                maxTrackedCooldown = { type = "range", order = 5.2, name = "Max tracked cooldown (sec, 0=off)", desc = "Ignore spells with cooldown above this value (0 disables max filter).", min = 0, max = 1800, step = 5 },
+                sep4 = { type = "description", order = 5.3, name = " ", width = "full" },
+                
+                performanceHeader = { type = "header", order = 6, name = "Performance" },
+                performanceMode = {
+                    type = "select",
+                    order = 6.1,
+                    name = "Performance mode",
+                    desc = "Runtime modes for defining the refresh rate and inspection retry parameters.",
+                    values = performanceModeValues,
+                    sorting = performanceModeSorting,
+                },
+                sep5 = { type = "description", order = 6.2, name = " ", width = "full" },
             },
         }
     end
@@ -400,8 +418,7 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
             local rowName = strlower(row.name or tostring(row.id))
             tinsert(allRowsByCategory[categoryKey], row)
             local matchesSearch = (globalSearch == "" or strfind(rowName, globalSearch, 1, true))
-            local passesEnabledFilter = true
-            if matchesSearch and passesEnabledFilter then
+            if matchesSearch then
                 tinsert(rowsByCategory[categoryKey], row)
             end
         end
@@ -777,4 +794,3 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
 
     ctx.SetBuilt(true)
 end
-

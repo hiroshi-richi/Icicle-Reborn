@@ -203,6 +203,7 @@ end
 function IcicleResolver.TryResolvePendingBinds(ctx)
     ctx.STATE.pendingBindByGUID = ctx.STATE.pendingBindByGUID or {}
     local now = GetTime()
+    local changed = false
     for guid, pending in pairs(ctx.STATE.pendingBindByGUID) do
         if not pending or not pending.name or now > (pending.expiresAt or 0) then
             ctx.STATE.pendingBindByGUID[guid] = nil
@@ -218,8 +219,19 @@ function IcicleResolver.TryResolvePendingBinds(ctx)
             )
             if ok then
                 IcicleResolver.MigrateNameCooldownsToGUID(ctx, pending.name, guid)
+                if ctx.MarkDirtyBySource then
+                    ctx.MarkDirtyBySource(guid, pending.name)
+                end
                 ctx.STATE.pendingBindByGUID[guid] = nil
+                changed = true
             end
+        end
+    end
+    if changed then
+        if ctx.RefreshDirtyPlates then
+            ctx.RefreshDirtyPlates()
+        elseif ctx.RefreshAllVisiblePlates then
+            ctx.RefreshAllVisiblePlates()
         end
     end
 end
@@ -270,4 +282,3 @@ function IcicleResolver.ResolveGroupTargets(ctx)
         end
     end
 end
-

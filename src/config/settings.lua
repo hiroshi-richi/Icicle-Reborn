@@ -26,6 +26,7 @@ IcicleDefaults = {
     classCategoryFilterEnabled = true,
     showOutOfRangeInspectMessages = true,
     debugMode = false,
+    performanceMode = "BALANCED",
 
     scanInterval = 0.15,
     iconUpdateInterval = 0.12,

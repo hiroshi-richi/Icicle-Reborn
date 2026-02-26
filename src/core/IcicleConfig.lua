@@ -4,6 +4,91 @@ local CATEGORY_BORDER_DEFAULTS = (IcicleConstants and IcicleConstants.CATEGORY_B
     GENERAL = { r = 0.502, g = 0.502, b = 0.502, a = 1.00 },
 }
 
+local PERFORMANCE_MODE_DEFAULT = "BALANCED"
+
+local PERFORMANCE_MODE_PRESETS = {
+    BATTERY = {
+        scanInterval = 0.30,
+        iconUpdateInterval = 0.22,
+        groupScanInterval = 0.90,
+        inspectRetryInterval = 2.00,
+        inspectMaxRetryTime = 20.0,
+    },
+    LOW_END = {
+        scanInterval = 0.22,
+        iconUpdateInterval = 0.16,
+        groupScanInterval = 0.60,
+        inspectRetryInterval = 1.50,
+        inspectMaxRetryTime = 25.0,
+    },
+    BALANCED = {
+        scanInterval = 0.15,
+        iconUpdateInterval = 0.12,
+        groupScanInterval = 0.35,
+        inspectRetryInterval = 1.00,
+        inspectMaxRetryTime = 30.0,
+    },
+    HIGH_END = {
+        scanInterval = 0.11,
+        iconUpdateInterval = 0.08,
+        groupScanInterval = 0.22,
+        inspectRetryInterval = 0.80,
+        inspectMaxRetryTime = 35.0,
+    },
+    ARENA = {
+        scanInterval = 0.08,
+        iconUpdateInterval = 0.05,
+        groupScanInterval = 0.12,
+        inspectRetryInterval = 0.60,
+        inspectMaxRetryTime = 45.0,
+    },
+}
+
+local function NormalizePerformanceMode(mode)
+    if type(mode) ~= "string" then
+        return PERFORMANCE_MODE_DEFAULT
+    end
+    mode = string.upper(mode)
+    if PERFORMANCE_MODE_PRESETS[mode] then
+        return mode
+    end
+    return PERFORMANCE_MODE_DEFAULT
+end
+
+function IcicleConfig.ApplyPerformanceMode(db, mode)
+    if type(db) ~= "table" then
+        return
+    end
+    local normalizedMode = NormalizePerformanceMode(mode or db.performanceMode)
+    local preset = PERFORMANCE_MODE_PRESETS[normalizedMode] or PERFORMANCE_MODE_PRESETS[PERFORMANCE_MODE_DEFAULT]
+    db.performanceMode = normalizedMode
+    db.scanInterval = preset.scanInterval
+    db.iconUpdateInterval = preset.iconUpdateInterval
+    db.groupScanInterval = preset.groupScanInterval
+    db.inspectRetryInterval = preset.inspectRetryInterval
+    db.inspectMaxRetryTime = preset.inspectMaxRetryTime
+end
+
+function IcicleConfig.GetPerformanceModeOptions()
+    return {
+        BATTERY = "1. Battery Saver (Slowest)",
+        LOW_END = "2. Low-End PC",
+        BALANCED = "3. Balanced",
+        HIGH_END = "4. High-End PC",
+        ARENA = "5. Arena (Fastest)",
+    }
+end
+
+function IcicleConfig.GetPerformanceModeOrder()
+    return {
+        "BATTERY",
+        "LOW_END",
+        "BALANCED",
+        "HIGH_END",
+        "ARENA",
+    }
+end
+
 local function GetDefaultCategoryForSpell(spellID)
     local dataModule = _G.IcicleData
     if type(dataModule) == "table" and type(dataModule.DEFAULT_SPELL_DATA) == "table" then
@@ -127,6 +212,8 @@ function IcicleConfig.NormalizeProfile(db, baseCooldowns)
     if db.showOutOfRangeInspectMessages == nil then db.showOutOfRangeInspectMessages = true end
     db.minTrackedCooldown = math.max(0, tonumber(db.minTrackedCooldown) or 0)
     db.maxTrackedCooldown = math.max(0, tonumber(db.maxTrackedCooldown) or 0)
+    db.performanceMode = NormalizePerformanceMode(db.performanceMode)
+    IcicleConfig.ApplyPerformanceMode(db, db.performanceMode)
     db.inspectRetryInterval = math.max(0.2, math.min(5, tonumber(db.inspectRetryInterval) or 1.0))
     db.inspectMaxRetryTime = math.max(5, math.min(120, tonumber(db.inspectMaxRetryTime) or 30.0))
     if db.highlightInterrupts == nil then db.highlightInterrupts = true end
