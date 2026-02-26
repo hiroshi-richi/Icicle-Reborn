@@ -42,7 +42,7 @@ function IcicleUIOptionTabs.BuildGeneralGroup(ctx)
                 type = "toggle",
                 order = 3.6,
                 name = "Test mode",
-                desc = "Enable or disable synthetic cooldown icons on visible nameplates for UI testing.",
+                desc = "Enable or disable synthetic cooldown icons on visible nameplates for UI testing. Auto-refresh cooldowns every 10s.",
                 get = function()
                     return ctx.STATE and ctx.STATE.testModeActive and true or false
                 end,

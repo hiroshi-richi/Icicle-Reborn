@@ -13,6 +13,7 @@
 - `src/core/IcicleConfig.lua`: profile migration + schema normalization + profile-level data fixes.
 - `src/core/IcicleState.lua`: initial runtime state shape and reset behavior.
 - `src/core/IcicleContexts.lua`: centralized builders for module context tables.
+- `src/bootstrap/IcicleBootstrap.lua`: internal API assembly used for debug/integration-facing hooks.
 - `src/modules/IcicleEvents.lua`: event router and high-level event policy.
 - `src/modules/IcicleEventParser.lua`: parsing helpers for combat log and spellcast events.
 - `src/modules/IcicleTracking.lua`: cooldown record creation, dedupe, reset/shared logic.
@@ -28,6 +29,11 @@
 - `src/ui/IcicleUIOptions.lua`: options panel assembly and tracked spells tree UI.
 - `src/ui/IcicleOptions.lua`: AceConfig panel registration.
 - `src/ui/IcicleTooltip.lua`: spell/item tooltip and panel description formatting.
+
+## Load Order Notes
+- Module file ordering is controlled in `Icicle.toc`.
+- Keep parser and context modules loaded before `src/core/Icicle.lua`.
+- Keep `src/ui/IcicleUIOptionTabs.lua` loaded before `src/ui/IcicleUIOptions.lua`.
 
 ## Context Model
 `Icicle.lua` passes explicit context tables into modules instead of letting modules read globals directly.

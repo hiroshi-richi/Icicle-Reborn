@@ -8,9 +8,17 @@ Icicle: Reborn tracks enemy cooldowns on WotLK (3.3.5a) nameplates and renders a
 
 - AddOn: `Icicle: Reborn`
 - Interface: `30300`
-- Version: `1.0.1-Beta`
+- Version: `1.0.2-Beta`
 - SavedVariables: `Icicledb`
 - Compatible client: `Wrath of the Lich King 3.3.5a`
+
+## Latest changes (1.0.2-Beta)
+
+- Core context wiring was split into `src/core/IcicleContexts.lua` for cleaner module boundaries.
+- Event argument parsing was extracted to `src/modules/IcicleEventParser.lua`.
+- Options tab builders (General/Style/Position) were extracted to `src/ui/IcicleUIOptionTabs.lua`.
+- Resolver matching/tie-break heuristics were tightened and centralized in `src/modules/IcicleResolver.lua`.
+- Maintainer architecture documentation was added in `docs/ARCHITECTURE.md`.
 
 ## What it does
 
