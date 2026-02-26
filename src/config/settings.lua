@@ -27,6 +27,7 @@ IcicleDefaults = {
     showOutOfRangeInspectMessages = true,
     debugMode = false,
     performanceMode = "BALANCED",
+    configVersion = 2,
 
     scanInterval = 0.15,
     iconUpdateInterval = 0.12,

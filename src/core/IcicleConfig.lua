@@ -5,6 +5,8 @@ local CATEGORY_BORDER_DEFAULTS = (IcicleConstants and IcicleConstants.CATEGORY_B
 }
 
 local PERFORMANCE_MODE_DEFAULT = "BALANCED"
+local PROFILE_VERSION_CURRENT = 2
+local PROFILE_VERSION_KEY = "configVersion"
 
 local PERFORMANCE_MODE_PRESETS = {
     BATTERY = {
@@ -53,6 +55,69 @@ local function NormalizePerformanceMode(mode)
         return mode
     end
     return PERFORMANCE_MODE_DEFAULT
+end
+
+local PROFILE_MIGRATIONS = {
+    [1] = function(db)
+        if type(db.performanceMode) == "string" and string.upper(db.performanceMode) == "TOURNAMENT" then
+            db.performanceMode = "ARENA"
+        end
+    end,
+}
+
+local function MigrateProfile(db)
+    local version = tonumber(db[PROFILE_VERSION_KEY]) or 0
+    if version < 0 then
+        version = 0
+    end
+    if version >= PROFILE_VERSION_CURRENT then
+        db[PROFILE_VERSION_KEY] = PROFILE_VERSION_CURRENT
+        return
+    end
+    for nextVersion = version + 1, PROFILE_VERSION_CURRENT do
+        local migrate = PROFILE_MIGRATIONS[nextVersion]
+        if type(migrate) == "function" then
+            migrate(db)
+        end
+    end
+    db[PROFILE_VERSION_KEY] = PROFILE_VERSION_CURRENT
+end
+
+local function ApplyProfileSchema(db)
+    db.spellCategories = db.spellCategories or {}
+    db.disabledSpells = db.disabledSpells or {}
+    db.specHintsByGUID = db.specHintsByGUID or {}
+    db.specHintsByName = db.specHintsByName or {}
+
+    if db.persistSpecHints == nil then db.persistSpecHints = false end
+    if db.specDetectEnabled == nil then db.specDetectEnabled = true end
+    if db.showAmbiguousByName == nil then db.showAmbiguousByName = true end
+    if db.debugMode == nil then db.debugMode = false end
+    if db.showInterruptWhenCapped == nil then db.showInterruptWhenCapped = true end
+    if db.classCategoryFilterEnabled == nil then db.classCategoryFilterEnabled = true end
+    if db.showOutOfRangeInspectMessages == nil then db.showOutOfRangeInspectMessages = true end
+    if db.highlightInterrupts == nil then db.highlightInterrupts = true end
+    if db.showBorders == nil then db.showBorders = false end
+
+    db.specHintTTL = math.max(30, math.min(3600, tonumber(db.specHintTTL) or 300))
+    db.minTrackedCooldown = math.max(0, tonumber(db.minTrackedCooldown) or 0)
+    db.maxTrackedCooldown = math.max(0, tonumber(db.maxTrackedCooldown) or 0)
+    db.inspectRetryInterval = math.max(0.2, math.min(5, tonumber(db.inspectRetryInterval) or 1.0))
+    db.inspectMaxRetryTime = math.max(5, math.min(120, tonumber(db.inspectMaxRetryTime) or 30.0))
+    db.priorityBorderSize = math.max(1, math.min(6, tonumber(db.priorityBorderSize) or 1))
+    db.priorityBorderInset = math.max(-2, math.min(4, tonumber(db.priorityBorderInset) or 0))
+
+    if db.party == nil then db.party = db.field ~= false end
+    if db.raid == nil then db.raid = db.field ~= false end
+    if db.interruptHighlightMode ~= "BORDER" and db.interruptHighlightMode ~= "ICON" then
+        db.interruptHighlightMode = "BORDER"
+    end
+    db.performanceMode = NormalizePerformanceMode(db.performanceMode)
+
+    db.interruptBorderColor = db.interruptBorderColor or { r = 0.30, g = 0.65, b = 1.00, a = 1.00 }
+    db.itemBorderColor = db.itemBorderColor or { r = 1.00, g = 0.82, b = 0.20, a = 1.00 }
+    db.categoryBorderEnabled = db.categoryBorderEnabled or {}
+    db.categoryBorderColors = db.categoryBorderColors or {}
 end
 
 function IcicleConfig.ApplyPerformanceMode(db, mode)
@@ -196,37 +261,9 @@ function IcicleConfig.CopyDefaults(target, defaults)
 end
 
 function IcicleConfig.NormalizeProfile(db, baseCooldowns)
-    db.spellCategories = db.spellCategories or {}
-    db.disabledSpells = db.disabledSpells or {}
-    db.specHintsByGUID = db.specHintsByGUID or {}
-    db.specHintsByName = db.specHintsByName or {}
-    if db.persistSpecHints == nil then db.persistSpecHints = false end
-    if db.specDetectEnabled == nil then db.specDetectEnabled = true end
-    db.specHintTTL = math.max(30, math.min(3600, tonumber(db.specHintTTL) or 300))
-    if db.party == nil then db.party = db.field ~= false end
-    if db.raid == nil then db.raid = db.field ~= false end
-    if db.showAmbiguousByName == nil then db.showAmbiguousByName = true end
-    if db.debugMode == nil then db.debugMode = false end
-    if db.showInterruptWhenCapped == nil then db.showInterruptWhenCapped = true end
-    if db.classCategoryFilterEnabled == nil then db.classCategoryFilterEnabled = true end
-    if db.showOutOfRangeInspectMessages == nil then db.showOutOfRangeInspectMessages = true end
-    db.minTrackedCooldown = math.max(0, tonumber(db.minTrackedCooldown) or 0)
-    db.maxTrackedCooldown = math.max(0, tonumber(db.maxTrackedCooldown) or 0)
-    db.performanceMode = NormalizePerformanceMode(db.performanceMode)
+    MigrateProfile(db)
+    ApplyProfileSchema(db)
     IcicleConfig.ApplyPerformanceMode(db, db.performanceMode)
-    db.inspectRetryInterval = math.max(0.2, math.min(5, tonumber(db.inspectRetryInterval) or 1.0))
-    db.inspectMaxRetryTime = math.max(5, math.min(120, tonumber(db.inspectMaxRetryTime) or 30.0))
-    if db.highlightInterrupts == nil then db.highlightInterrupts = true end
-    if db.interruptHighlightMode ~= "BORDER" and db.interruptHighlightMode ~= "ICON" then
-        db.interruptHighlightMode = "BORDER"
-    end
-    if db.showBorders == nil then db.showBorders = false end
-    db.priorityBorderSize = math.max(1, math.min(6, tonumber(db.priorityBorderSize) or 1))
-    db.priorityBorderInset = math.max(-2, math.min(4, tonumber(db.priorityBorderInset) or 0))
-    db.interruptBorderColor = db.interruptBorderColor or { r = 0.30, g = 0.65, b = 1.00, a = 1.00 }
-    db.itemBorderColor = db.itemBorderColor or { r = 1.00, g = 0.82, b = 0.20, a = 1.00 }
-    db.categoryBorderEnabled = db.categoryBorderEnabled or {}
-    db.categoryBorderColors = db.categoryBorderColors or {}
     for category, color in pairs(CATEGORY_BORDER_DEFAULTS) do
         if db.categoryBorderEnabled[category] == nil then
             db.categoryBorderEnabled[category] = true

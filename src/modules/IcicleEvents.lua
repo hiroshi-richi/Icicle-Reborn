@@ -1,7 +1,6 @@
 IcicleEvents = IcicleEvents or {}
 
-local strmatch = string.match
-local bit_band = bit.band
+local EventParser = _G.IcicleEventParser
 
 local ALLOWED_COMBATLOG_SUBEVENTS = {
     SPELL_CAST_SUCCESS = true,
@@ -122,22 +121,18 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
         end
         local guid = UnitGUID(unit)
         local now = GetTime()
-        local canCheck = true
         if guid then
             local last = ctx.STATE.lastSpecAuraCheckByGUID and ctx.STATE.lastSpecAuraCheckByGUID[guid]
             if last and (now - last) < 0.35 then
-                canCheck = false
-            else
-                ctx.STATE.lastSpecAuraCheckByGUID = ctx.STATE.lastSpecAuraCheckByGUID or {}
-                ctx.STATE.lastSpecAuraCheckByGUID[guid] = now
+                return
             end
+            ctx.STATE.lastSpecAuraCheckByGUID = ctx.STATE.lastSpecAuraCheckByGUID or {}
+            ctx.STATE.lastSpecAuraCheckByGUID[guid] = now
         end
-        if canCheck then
-            ctx.SyncSpecContext()
-            local changed = ctx.SpecModule.UpdateFromUnitAura(ctx.SPEC_CONTEXT, unit)
-            if changed then
-                ctx.RefreshAllVisiblePlates()
-            end
+        ctx.SyncSpecContext()
+        local changed = ctx.SpecModule.UpdateFromUnitAura(ctx.SPEC_CONTEXT, unit)
+        if changed then
+            ctx.RefreshAllVisiblePlates()
         end
         return
     end
@@ -180,33 +175,21 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
 
     if event == "COMBAT_LOG_EVENT_UNFILTERED" then
         if not ctx.IsEnabledInCurrentZone() then return end
-        local subEvent = select(2, ...)
-        if not ALLOWED_COMBATLOG_SUBEVENTS[subEvent] then
+        local parsed = EventParser and EventParser.ParseCombatLog and EventParser.ParseCombatLog(...)
+        if not parsed or not ALLOWED_COMBATLOG_SUBEVENTS[parsed.subEvent] then
             return
         end
 
-        local arg3 = select(3, ...)
-        local sourceGUID, sourceName, sourceFlags, spellID, spellName
-        if type(arg3) == "boolean" then
-            sourceGUID, sourceName, sourceFlags = select(4, ...), select(5, ...), select(6, ...)
-            spellID, spellName = select(12, ...), select(13, ...)
-        else
-            sourceGUID, sourceName, sourceFlags = select(3, ...), select(4, ...), select(5, ...)
-            spellID, spellName = select(9, ...), select(10, ...)
-        end
-        if not spellID or not sourceName then return end
+        local sourceGUID = parsed.sourceGUID
+        local sourceName = parsed.sourceName
+        local sourceFlags = parsed.sourceFlags
+        local spellID = parsed.spellID
+        local spellName = parsed.spellName
         if not ctx.CombatModule.IsHostileEnemyCaster(sourceFlags) then return end
 
         local reaction = ctx.CombatModule.GetReactionFromFlags and ctx.CombatModule.GetReactionFromFlags(sourceFlags) or nil
         local normalizedSourceName = ctx.ShortName(sourceName)
         local normalizedSourceGUID = sourceGUID
-        if type(sourceFlags) == "number" and COMBATLOG_OBJECT_TYPE_PET and bit_band(sourceFlags, COMBATLOG_OBJECT_TYPE_PET) == COMBATLOG_OBJECT_TYPE_PET then
-            local owner = strmatch(sourceName or "", "<([^>]+)>")
-            if owner and owner ~= "" then
-                normalizedSourceName = ctx.ShortName(owner)
-                normalizedSourceGUID = nil
-            end
-        end
         if not normalizedSourceName then return end
         if ctx.RequestFastNameplateScan then
             ctx.RequestFastNameplateScan(0.45)
@@ -222,27 +205,20 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
             ctx.RefreshAllVisiblePlates()
         end
 
-        ctx.StartCooldown(normalizedSourceGUID, normalizedSourceName, spellID, spellName, subEvent)
+        ctx.StartCooldown(normalizedSourceGUID, normalizedSourceName, spellID, spellName, parsed.subEvent)
         return
     end
 
     if event == "UNIT_SPELLCAST_SUCCEEDED" then
         if not ctx.IsEnabledInCurrentZone() then return end
 
-        local unit = select(1, ...)
-        local a2, a3, a4, a5 = select(2, ...), select(3, ...), select(4, ...), select(5, ...)
-        local spellName, spellRank, spellID
-        if type(a2) == "string" then
-            spellName = a2
-            spellRank = type(a3) == "string" and a3 or nil
-            if type(a4) == "number" then spellID = a4 end
-            if not spellID and type(a5) == "number" then spellID = a5 end
-        elseif type(a3) == "string" then
-            spellName = a3
-            spellRank = type(a4) == "string" and a4 or nil
-            if type(a5) == "number" then spellID = a5 end
-        end
-        if not unit or not spellName or spellName == "" then return end
+        local parsed = EventParser and EventParser.ParseUnitSpellcastSucceeded and EventParser.ParseUnitSpellcastSucceeded(...)
+        if not parsed then return end
+
+        local unit = parsed.unit
+        local spellName = parsed.spellName
+        local spellRank = parsed.spellRank
+        local spellID = parsed.spellID
         if not UnitExists(unit) then return end
         if not UnitCanAttack("player", unit) then return end
 
@@ -266,4 +242,3 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
         ctx.StartCooldown(sourceGUID, sourceName, spellID, spellName, "SPELL_CAST_SUCCESS")
     end
 end
-

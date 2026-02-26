@@ -50,9 +50,11 @@ local SpecModule = RequireTable("IcicleSpec", IcicleSpec)
 local InspectModule = RequireTable("IcicleInspect", IcicleInspect)
 local StateModule = RequireTable("IcicleState", IcicleState)
 local EventsModule = RequireTable("IcicleEvents", IcicleEvents)
+local EventParserModule = RequireTable("IcicleEventParser", IcicleEventParser)
 local UIOptionsModule = RequireTable("IcicleUIOptions", IcicleUIOptions)
 local BootstrapModule = RequireTable("IcicleBootstrap", IcicleBootstrap)
 local DataModule = RequireTable("IcicleData", IcicleData)
+local ContextsModule = RequireTable("IcicleContexts", IcicleContexts)
 
 RequireFunction("IcicleOptions", OptionsModule, "RegisterPanels")
 RequireFunction("IcicleTooltip", TooltipModule, "GetSpellOrItemInfo")
@@ -92,8 +94,14 @@ RequireFunction("IcicleInspect", InspectModule, "HandleInspectTalentReady")
 RequireFunction("IcicleState", StateModule, "BuildInitialState")
 RequireFunction("IcicleState", StateModule, "ResetRuntimeState")
 RequireFunction("IcicleEvents", EventsModule, "HandleEvent")
+RequireFunction("IcicleEventParser", EventParserModule, "ParseCombatLog")
+RequireFunction("IcicleEventParser", EventParserModule, "ParseUnitSpellcastSucceeded")
 RequireFunction("IcicleUIOptions", UIOptionsModule, "BuildOptionsPanel")
 RequireFunction("IcicleBootstrap", BootstrapModule, "BuildInternalAPI")
+RequireFunction("IcicleContexts", ContextsModule, "BuildTrackingContext")
+RequireFunction("IcicleContexts", ContextsModule, "BuildTestModeContext")
+RequireFunction("IcicleContexts", ContextsModule, "BuildSpellsContext")
+RequireFunction("IcicleContexts", ContextsModule, "BuildEventsContext")
 
 local GetSpellOrItemInfo = TooltipModule.GetSpellOrItemInfo
 local BuildSpellTooltipText = TooltipModule.BuildSpellTooltipText
@@ -640,6 +648,14 @@ local function GetSpellConfig(spellID, sourceGUID, sourceName)
     return CooldownRulesModule.GetSpellConfig(COOLDOWN_RULES_CONTEXT, spellID, sourceGUID, sourceName)
 end
 
+local function GetSharedCooldownTargets(spellID)
+    SyncCooldownRulesContext()
+    if CooldownRulesModule.GetSharedTargetsForSpell then
+        return CooldownRulesModule.GetSharedTargetsForSpell(COOLDOWN_RULES_CONTEXT, spellID)
+    end
+    return nil
+end
+
 local function EventMatchesTrigger(eventType, trigger)
     if trigger == "SUCCESS" then
         return eventType == "SPELL_CAST_SUCCESS" or eventType == "SPELL_MISSED"
@@ -1149,17 +1165,11 @@ local function RequestFastNameplateScan(duration)
     end
 end
 
-local TRACKING_CONTEXT = {
+local TRACKING_CONTEXT = ContextsModule.BuildTrackingContext({
     STATE = STATE,
-    db = nil,
     spellDedupeWindow = ConstantsModule.SPELL_DEDUPE_WINDOW,
     GetCooldownRule = GetSpellConfig,
-    GetSharedCooldownTargets = function(spellID)
-        SyncCooldownRulesContext()
-        if CooldownRulesModule.GetSharedTargetsForSpell then
-            return CooldownRulesModule.GetSharedTargetsForSpell(COOLDOWN_RULES_CONTEXT, spellID)
-        end
-    end,
+    GetSharedCooldownTargets = GetSharedCooldownTargets,
     GetSpellConfig = GetSpellConfig,
     EventMatchesTrigger = EventMatchesTrigger,
     TryBindByName = TryBindByName,
@@ -1176,7 +1186,7 @@ local TRACKING_CONTEXT = {
     RequestFastNameplateScan = RequestFastNameplateScan,
     scratchRecords = STATE.scratchRecords,
     scratchSpellInfo = STATE.scratchSpellInfo,
-}
+})
 
 local function StartCooldown(sourceGUID, sourceName, spellID, spellName, eventType)
     TRACKING_CONTEXT.db = db
@@ -1248,9 +1258,10 @@ local ToggleTestMode
 local BuildOptionsPanel
 local NotifySpellsChanged
 local GetBaseSpellEntry
+local BuildSpellRowsData
 local ProcessInspectQueue
 local PrimeEnabledItemDisplayInfo
-local TESTMODE_CONTEXT = {
+local TESTMODE_CONTEXT = ContextsModule.BuildTestModeContext({
     STATE = STATE,
     baseCooldowns = BASE_COOLDOWNS,
     WipeTable = WipeTable,
@@ -1258,57 +1269,44 @@ local TESTMODE_CONTEXT = {
     Print = Print,
     IsItemSpell = IsItemSpell,
     GetSpellOrItemInfo = GetSpellOrItemInfo,
-    GetSharedCooldownTargets = function(spellID)
-        SyncCooldownRulesContext()
-        if CooldownRulesModule.GetSharedTargetsForSpell then
-            return CooldownRulesModule.GetSharedTargetsForSpell(COOLDOWN_RULES_CONTEXT, spellID)
-        end
-        return nil
-    end,
-    GetCooldownRule = function(spellID, sourceGUID, sourceName)
-        return GetSpellConfig(spellID, sourceGUID, sourceName)
-    end,
-}
+    GetSharedCooldownTargets = GetSharedCooldownTargets,
+    GetCooldownRule = GetSpellConfig,
+})
 
-local function PopulateRandomPlateTests()
+local function SyncTestModeContext()
     TESTMODE_CONTEXT.baseCooldowns = BASE_COOLDOWNS
     TESTMODE_CONTEXT.db = db
     TESTMODE_CONTEXT.BuildSpellRowsData = BuildSpellRowsData
+end
+
+local function PopulateRandomPlateTests()
+    SyncTestModeContext()
     return TestModeModule.PopulateRandomPlateTests(TESTMODE_CONTEXT)
 end
 
 local function RandomizeTestMode()
-    TESTMODE_CONTEXT.baseCooldowns = BASE_COOLDOWNS
-    TESTMODE_CONTEXT.db = db
-    TESTMODE_CONTEXT.BuildSpellRowsData = BuildSpellRowsData
+    SyncTestModeContext()
     return TestModeModule.RandomizeTestMode(TESTMODE_CONTEXT)
 end
 
 local function StopTestMode()
-    TESTMODE_CONTEXT.baseCooldowns = BASE_COOLDOWNS
-    TESTMODE_CONTEXT.db = db
-    TESTMODE_CONTEXT.BuildSpellRowsData = BuildSpellRowsData
+    SyncTestModeContext()
     return TestModeModule.StopTestMode(TESTMODE_CONTEXT)
 end
 
 local function StartTestMode()
-    TESTMODE_CONTEXT.baseCooldowns = BASE_COOLDOWNS
-    TESTMODE_CONTEXT.db = db
-    TESTMODE_CONTEXT.BuildSpellRowsData = BuildSpellRowsData
+    SyncTestModeContext()
     PrimeEnabledItemDisplayInfo()
     return TestModeModule.StartTestMode(TESTMODE_CONTEXT)
 end
 
 ToggleTestMode = function()
-    TESTMODE_CONTEXT.baseCooldowns = BASE_COOLDOWNS
-    TESTMODE_CONTEXT.db = db
-    TESTMODE_CONTEXT.BuildSpellRowsData = BuildSpellRowsData
+    SyncTestModeContext()
     PrimeEnabledItemDisplayInfo()
     return TestModeModule.ToggleTestMode(TESTMODE_CONTEXT)
 end
 
-local SPELLS_CONTEXT = {
-    db = nil,
+local SPELLS_CONTEXT = ContextsModule.BuildSpellsContext({
     baseCooldowns = BASE_COOLDOWNS,
     DEFAULT_SPELLS_BY_CATEGORY = DEFAULT_SPELLS_BY_CATEGORY,
     DEFAULT_SPELL_DATA = DEFAULT_SPELL_DATA,
@@ -1319,9 +1317,9 @@ local SPELLS_CONTEXT = {
     NormalizeTrigger = NormalizeTrigger,
     SpellCategory = SpellCategory,
     IsItemSpell = IsItemSpell,
-}
+})
 
-local function BuildSpellRowsData()
+BuildSpellRowsData = function()
     SPELLS_CONTEXT.db = db
     SPELLS_CONTEXT.baseCooldowns = BASE_COOLDOWNS
     return SpellsModule.BuildSpellRowsData(SPELLS_CONTEXT)
@@ -1672,7 +1670,7 @@ local function RecordCombatReaction(sourceGUID, sourceName, reaction)
     end
 end
 
-local EVENTS_CONTEXT = {
+local EVENTS_CONTEXT = ContextsModule.BuildEventsContext({
     addon = addon,
     baseCooldowns = BASE_COOLDOWNS,
     ConfigModule = ConfigModule,
@@ -1711,9 +1709,7 @@ local EVENTS_CONTEXT = {
         StateModule.ResetRuntimeState(STATE, WipeTable)
     end,
     Print = Print,
-    aceDBRef = { value = nil },
-    dbRef = { value = nil },
-}
+})
 
 local function HandleEvent(_, event, ...)
     EVENTS_CONTEXT.aceDBRef.value = aceDB
@@ -1729,4 +1725,3 @@ end
 
 addon:RegisterEvent("PLAYER_LOGIN")
 addon:SetScript("OnEvent", HandleEvent)
-

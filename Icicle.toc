@@ -17,6 +17,7 @@ src\ui\IcicleTooltip.lua
 src\modules\IcicleCombat.lua
 src\ui\IcicleOptions.lua
 src\core\IcicleConfig.lua
+src\core\IcicleContexts.lua
 src\modules\IcicleCooldownRules.lua
 src\modules\IcicleTracking.lua
 src\modules\IcicleNameplates.lua
@@ -26,8 +27,10 @@ src\modules\IcicleTestMode.lua
 src\modules\IcicleSpells.lua
 src\modules\IcicleSpec.lua
 src\modules\IcicleInspect.lua
+src\modules\IcicleEventParser.lua
 src\core\IcicleState.lua
 src\modules\IcicleEvents.lua
+src\ui\IcicleUIOptionTabs.lua
 src\ui\IcicleUIOptions.lua
 src\bootstrap\IcicleBootstrap.lua
 src\core\Icicle.lua
