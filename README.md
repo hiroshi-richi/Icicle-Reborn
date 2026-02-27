@@ -3,6 +3,7 @@
 Icicle: Reborn tracks enemy cooldowns on WotLK (3.3.5a) nameplates and renders active cooldown timers directly on each enemy plate.
 
 ![Interface: 30300](https://img.shields.io/badge/Interface-30300-blue) ![Wrath 3.3.5a](https://img.shields.io/badge/Wrath-3.3.5a-yellow)
+<img width="671" height="464" alt="Icicle-reborn" src="https://github.com/user-attachments/assets/f6344f32-fd90-4926-86de-9c5090ee04f5" />
 
 ## Release metadata
 
