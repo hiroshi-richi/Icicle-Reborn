@@ -3,26 +3,53 @@ IcicleInspect = IcicleInspect or {}
 local tremove = table.remove
 local sort = table.sort
 
+local function ReindexInspectQueueFrom(state, startIndex)
+    local startAt = tonumber(startIndex) or 1
+    if startAt < 1 then
+        startAt = 1
+    end
+    local queue = state.inspectQueue
+    state.inspectQueueIndexByGUID = state.inspectQueueIndexByGUID or {}
+    for i = startAt, #queue do
+        local entry = queue[i]
+        if entry and entry.guid then
+            state.inspectQueueIndexByGUID[entry.guid] = i
+        end
+    end
+end
+
 local function RemoveInspectQueueEntryAt(state, index)
     local entry = state.inspectQueue[index]
     if not entry then
         return
     end
     state.inspectQueuedByGUID[entry.guid] = nil
+    state.inspectQueueIndexByGUID[entry.guid] = nil
     tremove(state.inspectQueue, index)
+    if index <= #state.inspectQueue then
+        ReindexInspectQueueFrom(state, index)
+    end
 end
 
 local function RemoveInspectQueueByGUID(state, guid)
     if not guid then
         return
     end
-    for i = #state.inspectQueue, 1, -1 do
-        local entry = state.inspectQueue[i]
-        if entry and entry.guid == guid then
-            RemoveInspectQueueEntryAt(state, i)
+    state.inspectQueueIndexByGUID = state.inspectQueueIndexByGUID or {}
+    local index = state.inspectQueueIndexByGUID[guid]
+    if index and state.inspectQueue[index] and state.inspectQueue[index].guid == guid then
+        RemoveInspectQueueEntryAt(state, index)
+    else
+        for i = #state.inspectQueue, 1, -1 do
+            local entry = state.inspectQueue[i]
+            if entry and entry.guid == guid then
+                RemoveInspectQueueEntryAt(state, i)
+                break
+            end
         end
     end
     state.inspectQueuedByGUID[guid] = nil
+    state.inspectQueueIndexByGUID[guid] = nil
 end
 
 function IcicleInspect.QueueInspectForUnit(ctx, unit)
@@ -36,19 +63,30 @@ function IcicleInspect.QueueInspectForUnit(ctx, unit)
 
     local state = ctx.STATE
     if state.inspectQueuedByGUID[guid] then
+        state.inspectQueueIndexByGUID = state.inspectQueueIndexByGUID or {}
+        local idx = state.inspectQueueIndexByGUID[guid]
+        local entry = idx and state.inspectQueue[idx] or nil
+        if entry and entry.guid == guid then
+            entry.unit = unit
+            entry.lastSeen = GetTime()
+            return
+        end
         for i = 1, #state.inspectQueue do
-            local entry = state.inspectQueue[i]
-            if entry and entry.guid == guid then
-                entry.unit = unit
-                entry.lastSeen = GetTime()
-                break
+            local fallback = state.inspectQueue[i]
+            if fallback and fallback.guid == guid then
+                fallback.unit = unit
+                fallback.lastSeen = GetTime()
+                state.inspectQueueIndexByGUID[guid] = i
+                return
             end
         end
         return
     end
 
     local now = GetTime()
-    state.inspectQueue[#state.inspectQueue + 1] = {
+    state.inspectQueueIndexByGUID = state.inspectQueueIndexByGUID or {}
+    local newIndex = #state.inspectQueue + 1
+    state.inspectQueue[newIndex] = {
         guid = guid,
         unit = unit,
         enqueuedAt = now,
@@ -56,6 +94,7 @@ function IcicleInspect.QueueInspectForUnit(ctx, unit)
         lastSeen = now,
     }
     state.inspectQueuedByGUID[guid] = true
+    state.inspectQueueIndexByGUID[guid] = newIndex
 end
 
 local function IsInspectUnitInRange(unit)

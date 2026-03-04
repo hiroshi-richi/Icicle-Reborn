@@ -1,6 +1,7 @@
 IcicleTestMode = IcicleTestMode or {}
 
 local tinsert = table.insert
+local GetTime = GetTime
 
 local INTERRUPT_SPELLS = {
     [72] = true,

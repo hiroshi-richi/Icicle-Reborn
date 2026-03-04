@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.3-Beta - 2026-03-04
+
+### Added
+- Added duel refresh handling in `src/modules/IcicleEvents.lua` for `DUEL_REQUESTED`, `DUEL_INBOUNDS`, and `DUEL_FINISHED`.
+- Added castbar anchor source debug traces via centralized `Print` in `src/core/Icicle.lua`.
+- Added a Position-tab toggle for castbar-aware anchoring in `src/ui/IcicleUIOptionTabs.lua`.
+
+### Changed
+- Improved castbar-relative icon anchoring logic in `src/core/Icicle.lua` to better follow real nameplate castbar composites.
+- Updated the default `anchorBelowCastbarWhenCasting` setting to `true` in `src/config/settings.lua`, with schema fallback in `src/core/IcicleConfig.lua`.
+- Updated inspect queue internals in `src/modules/IcicleInspect.lua` and `src/core/IcicleState.lua` with GUID index bookkeeping for faster queue updates.
+- Updated resolver group-target scanning in `src/modules/IcicleResolver.lua` to skip group-target passes when not grouped.
+- Updated options refresh behavior in `src/ui/IcicleUIOptions.lua` with debounced non-critical full plate refreshes.
+- Updated cooldown tracking internals in `src/modules/IcicleTracking.lua` and expiry/prune paths in `src/core/Icicle.lua` to use cached spell-map counts.
+- Improved nameplate/castbar refresh handling in `src/modules/IcicleNameplates.lua` with cast text region caching, safer discovery heuristics, and castbar rebinding when plate internals change.
+
+### Fixed
+- Fixed cooldown icon anchor refresh for castbar show/hide transitions in render updates (`src/modules/IcicleRender.lua`).
+- Fixed profile reset UX noise by ensuring chat output is gated by centralized debug-aware `Print`.
+
 ## 1.0.2-Beta - 2026-02-26
 
 ### Added
@@ -23,10 +43,10 @@
 - Improved nameplate responsiveness in crowded fights with event-driven fast-scan bursts.
 - Added reappear fallback logic so known cooldowns show faster when enemy nameplates return to view.
 - Added periodic plate discovery while pending binds exist, improving reused-frame detection.
-- Performed release text cleanup across UI descriptions and README wording.
+- Cleaned up release text across UI descriptions and README wording.
 
 ## 1.0.0-Beta - 2026-02-19
 
 - Finalized release metadata in `Icicle.toc` (flavor, release date, category, default state).
 - Updated README structure and release-facing documentation for clarity and consistency.
-- This release focuses on beta release, packaging, docs, and presentation polish.
+- Focused this beta release on packaging, docs, and presentation polish.

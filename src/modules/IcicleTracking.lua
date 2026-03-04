@@ -93,11 +93,14 @@ end
 local function UpsertRecord(ctx, mapByUnit, unitKey, record, storeKind)
     local bySpell = mapByUnit[unitKey]
     if not bySpell then
-        bySpell = { __dirty = true, __list = {}, __listCount = 0 }
+        bySpell = { __dirty = true, __list = {}, __listCount = 0, __count = 0 }
         mapByUnit[unitKey] = bySpell
     end
     local current = bySpell[record.spellID]
     if (not current) or current.expiresAt < record.expiresAt then
+        if not current then
+            bySpell.__count = (tonumber(bySpell.__count) or 0) + 1
+        end
         bySpell[record.spellID] = record
         bySpell.__dirty = true
         if ctx and ctx.RegisterExpiryRecord then
@@ -112,10 +115,23 @@ local function ApplyResets(stateStore, unitKey, resetSpells)
         return false
     end
 
+    if bySpell.__count == nil then
+        local c = 0
+        for spellID in pairs(bySpell) do
+            if type(spellID) == "number" then
+                c = c + 1
+            end
+        end
+        bySpell.__count = c
+    end
+
     local changed = false
     for resetSpellID in pairs(resetSpells) do
         if bySpell[resetSpellID] then
             bySpell[resetSpellID] = nil
+            local nextCount = (tonumber(bySpell.__count) or 0) - 1
+            if nextCount < 0 then nextCount = 0 end
+            bySpell.__count = nextCount
             changed = true
         end
     end
@@ -123,14 +139,7 @@ local function ApplyResets(stateStore, unitKey, resetSpells)
         bySpell.__dirty = true
     end
 
-    local hasSpells = false
-    for k in pairs(bySpell) do
-        if type(k) == "number" then
-            hasSpells = true
-            break
-        end
-    end
-    if not hasSpells then
+    if (tonumber(bySpell.__count) or 0) <= 0 then
         stateStore[unitKey] = nil
     end
     return changed
@@ -347,4 +356,3 @@ function IcicleTracking.StartCooldown(ctx, sourceGUID, sourceName, spellID, spel
         end
     end
 end
-

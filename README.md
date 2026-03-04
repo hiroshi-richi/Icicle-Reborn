@@ -8,17 +8,19 @@ Icicle: Reborn tracks enemy cooldowns on WotLK (3.3.5a) nameplates and renders a
 
 - AddOn: `Icicle: Reborn`
 - Interface: `30300`
-- Version: `1.0.2-Beta`
+- Version: `1.0.3-Beta`
 - SavedVariables: `Icicledb`
 - Compatible client: `Wrath of the Lich King 3.3.5a`
 
-## Latest changes (1.0.2-Beta)
+## Latest changes (1.0.3-Beta)
 
-- Core context wiring was split into `src/core/IcicleContexts.lua` for cleaner module boundaries.
-- Event argument parsing was extracted to `src/modules/IcicleEventParser.lua`.
-- Options tab builders (General/Style/Position) were extracted to `src/ui/IcicleUIOptionTabs.lua`.
-- Resolver matching/tie-break heuristics were tightened and centralized in `src/modules/IcicleResolver.lua`.
-- Maintainer architecture documentation was added in `docs/ARCHITECTURE.md`.
+- Improved castbar-aware anchoring so cooldown icons can reliably attach under the active castbar composite (icon + bar).
+- Added duel-state refresh hooks (`DUEL_REQUESTED`, `DUEL_INBOUNDS`, `DUEL_FINISHED`) to keep hostile/friendly transitions accurate without frequent target-change scans.
+- Optimized cooldown map bookkeeping with count caching to reduce repeated full-table scans during expiry/prune paths.
+- Optimized inspect queue operations with GUID-to-index tracking for faster updates/removals.
+- Skips party/raid target scanning when not grouped, reducing idle resolver overhead.
+- Debounced options-driven full plate refreshes to avoid rapid duplicate rebuilds while preserving behavior.
+- Improved castbar/nameplate refresh detection to better handle frame reshuffles and recover cast text regions reliably.
 
 ## What it does
 

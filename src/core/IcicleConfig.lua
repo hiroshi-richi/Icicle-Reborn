@@ -98,6 +98,7 @@ local function ApplyProfileSchema(db)
     if db.showOutOfRangeInspectMessages == nil then db.showOutOfRangeInspectMessages = true end
     if db.highlightInterrupts == nil then db.highlightInterrupts = true end
     if db.showBorders == nil then db.showBorders = false end
+    if db.anchorBelowCastbarWhenCasting == nil then db.anchorBelowCastbarWhenCasting = true end
 
     db.specHintTTL = math.max(30, math.min(3600, tonumber(db.specHintTTL) or 300))
     db.minTrackedCooldown = math.max(0, tonumber(db.minTrackedCooldown) or 0)

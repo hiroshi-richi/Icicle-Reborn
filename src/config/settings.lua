@@ -12,6 +12,7 @@ IcicleDefaults = {
     anchorTo = "BOTTOMLEFT",
     xOffset = 0,
     yOffset = -6,
+    anchorBelowCastbarWhenCasting = true,
 
     iconSize = 22,
     iconSpacing = 2,

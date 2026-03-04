@@ -64,16 +64,38 @@ function IcicleNameplates.GetCastSpellFromBar(castBar)
 
     if castBar.Text and castBar.Text.GetText then
         local txt = castBar.Text:GetText()
-        if txt and txt ~= "" then return txt end
+        if txt and txt ~= "" then
+            castBar._icicleCastTextRegion = castBar.Text
+            return txt
+        end
+    end
+
+    local cachedTextRegion = castBar._icicleCastTextRegion
+    if cachedTextRegion and cachedTextRegion.GetText then
+        local txt = cachedTextRegion:GetText()
+        if txt and txt ~= "" then
+            return txt
+        end
     end
 
     local regionCount = castBar:GetNumRegions()
+    local firstFontString = nil
     for i = 1, regionCount do
         local reg = select(i, castBar:GetRegions())
         if reg and reg.GetObjectType and reg:GetObjectType() == "FontString" then
+            if not firstFontString then
+                firstFontString = reg
+            end
             local txt = reg:GetText()
-            if txt and txt ~= "" then return txt end
+            if txt and txt ~= "" then
+                castBar._icicleCastTextRegion = reg
+                return txt
+            end
         end
+    end
+
+    if firstFontString then
+        castBar._icicleCastTextRegion = firstFontString
     end
 
     return nil
@@ -153,8 +175,19 @@ function IcicleNameplates.ScanNameplates(ctx)
     if shouldDiscover then
         for i = 1, numChildren do
             local frame = select(i, ctx.WorldFrame:GetChildren())
-            if frame and not ctx.STATE.knownPlates[frame] and IcicleNameplates.IsLikelyNamePlate(frame) then
-                ctx.RegisterPlate(frame)
+            if frame and not ctx.STATE.knownPlates[frame] then
+                local frameName = frame.GetName and frame:GetName() or nil
+                if frameName and string.find(frameName, "NamePlate") then
+                    ctx.RegisterPlate(frame)
+                else
+                    local childCount = frame.GetNumChildren and frame:GetNumChildren() or 0
+                    if childCount > 0 then
+                        local regionCount = frame.GetNumRegions and frame:GetNumRegions() or 0
+                        if regionCount >= 2 and IcicleNameplates.IsLikelyNamePlate(frame) then
+                            ctx.RegisterPlate(frame)
+                        end
+                    end
+                end
             end
         end
         ctx.STATE.lastPlateDiscoveryAt = now
@@ -195,6 +228,13 @@ function IcicleNameplates.ScanNameplates(ctx)
         if plate:IsShown() and plate:GetAlpha() > 0 then
             local meta = ctx.STATE.plateMeta[plate]
             if meta then
+                if (not meta.castBar) or (meta.castBar and meta.castBar.GetParent and meta.castBar:GetParent() ~= plate) then
+                    local healthBar, castBar = IcicleNameplates.FindBars(plate)
+                    if healthBar then
+                        meta.healthBar = healthBar
+                    end
+                    meta.castBar = castBar
+                end
                 meta.name = IcicleNameplates.PlateName(meta, ctx.ShortName)
                 if meta.name then
                     IcicleNameplates.AddVisibleNamePlate(ctx.STATE.visiblePlatesByName, meta.name, plate)

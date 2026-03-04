@@ -110,31 +110,38 @@ function IcicleUIOptionTabs.BuildStyleGroup(ctx)
         set = ctx.OptionsSet,
         args = {
             desc = { type = "description", order = 1, name = "Icon/text appearance." },
-            iconSize = { type = "range", order = 2, name = "Icon size", desc = "Sets the width/height of each cooldown icon.", min = 10, max = 64, step = 1 },
-            fontSize = { type = "range", order = 3, name = "Font size", desc = "Controls the cooldown text size inside icons.", min = 6, max = 30, step = 1 },
-            textfont = { type = "select", order = 4, name = "Font face", desc = "Selects the font used for cooldown text and markers.", values = fontChoices },
-            iconSpacing = { type = "range", order = 5, name = "Icon spacing", desc = "Horizontal/vertical gap between icons.", min = 0, max = 20, step = 1 },
-            maxIconsPerRow = { type = "range", order = 6, name = "Max icons per row", desc = "Maximum number of icons shown in each row.", min = 1, max = 20, step = 1 },
-            maxIcons = { type = "range", order = 7, name = "Max icons", desc = "Total icon cap per nameplate.", min = 1, max = 40, step = 1 },
-            spacer1 = { type = "description", order = 8, name = " ", width = "full" },
-            bordersHeader = { type = "header", order = 9, name = "Borders" },
+
+            iconSize = { type = "range", order = 2.1, name = "Icon size", desc = "Sets the width/height of each cooldown icon.", min = 10, max = 64, step = 1 },
+            iconSpacing = { type = "range", order = 2.2, name = "Icon spacing", desc = "Horizontal/vertical gap between icons.", min = 0, max = 20, step = 1 },
+            spacer1 = { type = "description", order = 2.3, name = " ", width = "full" },
+
+            maxIconsPerRow = { type = "range", order = 3.1, name = "Max icons per row", desc = "Maximum number of icons shown in each row.", min = 1, max = 20, step = 1 },
+            maxIcons = { type = "range", order = 3.2, name = "Max icons", desc = "Total icon cap per nameplate.", min = 1, max = 40, step = 1 },
+            spacer2 = { type = "description", order = 3.3, name = " ", width = "full" },
+
+            fontSize = { type = "range", order = 4.1, name = "Font size", desc = "Controls the cooldown text size inside icons.", min = 6, max = 30, step = 1 },
+            textfont = { type = "select", order = 4.2, name = "Font face", desc = "Selects the font used for cooldown text and markers.", values = fontChoices },
+            spacer3 = { type = "description", order = 4.3, name = " ", width = "full" },
+
+            bordersHeader = { type = "header", order = 5.1, name = "Borders" },
             priorityBorderSize = {
                 type = "range",
-                order = 9.1,
+                order = 5.2,
                 name = "Border thickness",
                 desc = "Thickness of highlight borders.",
                 min = 1, max = 6, step = 1,
             },
             priorityBorderInset = {
                 type = "range",
-                order = 9.2,
+                order = 5.3,
                 name = "Border inset",
                 desc = "Moves border inward/outward relative to icon edges.",
                 min = -2, max = 4, step = 1,
             },
+            spacer4 = { type = "description", order = 5.4, name = " ", width = "full" },
             showBorders = {
                 type = "toggle",
-                order = 9.3,
+                order = 5.5,
                 name = "Show borders",
                 desc = "Show category color borders.",
             }
@@ -150,21 +157,32 @@ function IcicleUIOptionTabs.BuildPositionGroup(ctx)
         set = ctx.OptionsSet,
         args = {
             desc = { type = "description", order = 1, name = "Container anchor and growth configuration." },
-            spacer1 = { type = "description", order = 1.5, name = "", width = "full" },
-            anchorPoint = { type = "select", order = 2, name = "Frame anchor", desc = "Anchor point used by Icicle: Reborn icon container.", values = ctx.POINT_VALUES },
-            anchorTo = { type = "select", order = 3, name = "Nameplate anchor", desc = "Nameplate point that the Icicle: Reborn container attaches to.", values = ctx.POINT_VALUES },
-            spacer2 = { type = "description", order = 3.5, name = "", width = "full" },
-            xOffset = { type = "range", order = 4, name = "X offset", desc = "Horizontal offset from the selected anchor point.", min = -200, max = 200, step = 1 },
-            yOffset = { type = "range", order = 5, name = "Y offset", desc = "Vertical offset from the selected anchor point.", min = -200, max = 200, step = 1 },
-            spacer3 = { type = "description", order = 5.5, name = "", width = "full" },
-            growthDirection = { type = "select", order = 6, name = "Growth direction", desc = "Direction used when adding more icons in the grid.", values = ctx.GROW_VALUES },
+
+            anchorPoint = { type = "select", order = 2.1, name = "Frame anchor", desc = "Anchor point used by Icicle: Reborn icon container.", values = ctx.POINT_VALUES },
+            anchorTo = { type = "select", order = 2.2, name = "Nameplate anchor", desc = "Nameplate point that the Icicle: Reborn container attaches to.", values = ctx.POINT_VALUES },
+            spacer1 = { type = "description", order = 2.3, name = "", width = "full" },
+
+            xOffset = { type = "range", order = 3.1, name = "X offset", desc = "Horizontal offset from the selected anchor point.", min = -200, max = 200, step = 1 },
+            yOffset = { type = "range", order = 3.2, name = "Y offset", desc = "Vertical offset from the selected anchor point.", min = -200, max = 200, step = 1 },
+            spacer2 = { type = "description", order = 3.3, name = "", width = "full" },
+
+            growthDirection = { type = "select", order = 4.1, name = "Growth direction", desc = "Direction used when adding more icons in the grid.", values = ctx.GROW_VALUES },
             frameStrata = {
                 type = "select",
-                order = 7,
+                order = 4.2,
                 name = "Layer priority",
                 desc = "Rendering layer priority of Icicle: Reborn icons relative to other UI elements.",
                 values = { LOW = "LOW", MEDIUM = "MEDIUM", HIGH = "HIGH" }
             },
+            spacer3 = { type = "description", order = 4.3, name = "", width = "full" },
+
+            anchorBelowCastbarWhenCasting = {
+                type = "toggle",
+                order = 5.1,
+                name = "Anchor below cast bar (while casting)",
+                desc = "When the nameplate cast bar is visible, anchor Icicle icons below it.",
+            },
+            spacer4 = { type = "description", order = 5.2, name = "", width = "full" },
         },
     }
 end

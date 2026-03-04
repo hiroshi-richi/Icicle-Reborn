@@ -107,6 +107,46 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
     end
 
     local root = BuildRootGroup(addonVersion)
+    local optionsRefreshDebounceSec = 0.08
+    local optionsRefreshFrame = nil
+    local optionsRefreshDueAt = 0
+
+    local function OnOptionsRefreshUpdate(self)
+        if GetTime() < optionsRefreshDueAt then
+            return
+        end
+        self:SetScript("OnUpdate", nil)
+        self:Hide()
+        ctx.RefreshAllVisiblePlates()
+    end
+
+    local function EnsureOptionsRefreshFrame()
+        if optionsRefreshFrame then
+            return optionsRefreshFrame
+        end
+        optionsRefreshFrame = CreateFrame("Frame")
+        optionsRefreshFrame:Hide()
+        return optionsRefreshFrame
+    end
+
+    local function QueueOptionsRefresh(debounceSec)
+        local delay = tonumber(debounceSec) or 0
+        if delay <= 0 then
+            local frame = optionsRefreshFrame
+            if frame then
+                frame:SetScript("OnUpdate", nil)
+                frame:Hide()
+            end
+            ctx.RefreshAllVisiblePlates()
+            return
+        end
+        optionsRefreshDueAt = GetTime() + delay
+        local frame = EnsureOptionsRefreshFrame()
+        if not frame:GetScript("OnUpdate") then
+            frame:SetScript("OnUpdate", OnOptionsRefreshUpdate)
+        end
+        frame:Show()
+    end
 
     local function OptionsSet(info, value)
         local db = DB()
@@ -118,7 +158,11 @@ function IcicleUIOptions.BuildOptionsPanel(ctx)
         if key == "specDetectEnabled" and ctx.UpdateAdvancedSpecEvents then
             ctx.UpdateAdvancedSpecEvents()
         end
-        ctx.RefreshAllVisiblePlates()
+        if key == "performanceMode" or key == "specDetectEnabled" then
+            QueueOptionsRefresh(0)
+        else
+            QueueOptionsRefresh(optionsRefreshDebounceSec)
+        end
     end
 
     local function OptionsGet(info)

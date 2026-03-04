@@ -22,6 +22,7 @@ local RESET_TABLE_FIELDS = {
     "inspectRequestAtByGUID",
     "inspectQueue",
     "inspectQueuedByGUID",
+    "inspectQueueIndexByGUID",
     "inspectOutOfRangeSince",
     "inspectOutOfRangeUnits",
     "feignDeathAuraByGUID",
@@ -70,6 +71,7 @@ function IcicleState.BuildInitialState()
         inspectRequestAtByGUID = {},
         inspectQueue = {},
         inspectQueuedByGUID = {},
+        inspectQueueIndexByGUID = {},
         inspectCurrent = nil,
         inspectOutOfRangeSince = {},
         inspectOutOfRangeUnits = {},
@@ -132,4 +134,3 @@ function IcicleState.ResetRuntimeState(state, wipeTable)
     state.nextFastScanPulseAt = 0
     state.inspectCurrent = nil
 end
-

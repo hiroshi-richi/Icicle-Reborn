@@ -277,6 +277,9 @@ function IcicleRender.RenderPlate(ctx, meta)
     ctx.ApplyContainerAnchor(meta)
 
     local now = GetTime()
+    local borderMode = (ctx.db and ctx.db.interruptHighlightMode) or "BORDER"
+    local canShowCategoryBorders = ctx.db and ctx.db.showBorders ~= false
+    local canPulseInterruptBorder = ctx.db and ctx.db.highlightInterrupts and borderMode == "BORDER"
     local records = IcicleRender.CollectDisplayRecords(ctx, meta)
     if #records > 1 then
         tsort(records, SortByExpire)
@@ -314,7 +317,9 @@ function IcicleRender.RenderPlate(ctx, meta)
         icon.isOverflow = nil
         ApplyInterruptIconPulse(ctx, icon, rec, now)
         if rec.__ambiguous then icon.ambiguousMark:Show() else icon.ambiguousMark:Hide() end
-        ApplyPriorityBorder(ctx, icon, rec, now)
+        if canShowCategoryBorders or (canPulseInterruptBorder and rec.isInterrupt) or icon._borderVisible then
+            ApplyPriorityBorder(ctx, icon, rec, now)
+        end
         icon:Show()
     end
 
@@ -455,6 +460,9 @@ function IcicleRender.OnUpdate(ctx, elapsed)
     if ctx.STATE.iconAccum >= ctx.db.iconUpdateInterval then
         ctx.STATE.iconAccum = 0
         now = GetTime()
+        local borderMode = (ctx.db and ctx.db.interruptHighlightMode) or "BORDER"
+        local canShowCategoryBorders = ctx.db and ctx.db.showBorders ~= false
+        local canPulseInterruptBorder = ctx.db and ctx.db.highlightInterrupts and borderMode == "BORDER"
         local changed = false
 
         if ctx.ProcessExpiryQueue then
@@ -481,13 +489,17 @@ function IcicleRender.OnUpdate(ctx, elapsed)
                     local plate = list[p]
                     local meta = plate and plate.IsShown and plate:IsShown() and plate:GetAlpha() > 0 and ctx.STATE.plateMeta[plate]
                     if meta then
+                        -- Keep container anchor responsive to castbar show/hide even when we only refresh icon text.
+                        ctx.ApplyContainerAnchor(meta)
                         for i = 1, #meta.activeIcons do
                             local icon = meta.activeIcons[i]
                             local rec = icon.record
                             if rec and not icon.isOverflow then
                                 if now < (icon._nextTextUpdateAt or 0) then
                                     ApplyInterruptIconPulse(ctx, icon, rec, now)
-                                    ApplyPriorityBorder(ctx, icon, rec, now)
+                                    if canShowCategoryBorders or (canPulseInterruptBorder and rec.isInterrupt) or icon._borderVisible then
+                                        ApplyPriorityBorder(ctx, icon, rec, now)
+                                    end
                                 else
                                 local remain = rec.expiresAt - now
                                 local cooldownText = ctx.FormatRemaining(remain)
@@ -506,7 +518,9 @@ function IcicleRender.OnUpdate(ctx, elapsed)
                                     icon._nextTextUpdateAt = now + 0.10
                                 end
                                 ApplyInterruptIconPulse(ctx, icon, rec, now)
-                                ApplyPriorityBorder(ctx, icon, rec, now)
+                                if canShowCategoryBorders or (canPulseInterruptBorder and rec.isInterrupt) or icon._borderVisible then
+                                    ApplyPriorityBorder(ctx, icon, rec, now)
+                                end
                                 end
                             end
                         end
@@ -516,4 +530,3 @@ function IcicleRender.OnUpdate(ctx, elapsed)
         end
     end
 end
-

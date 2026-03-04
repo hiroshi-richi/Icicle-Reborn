@@ -9,6 +9,25 @@ local ALLOWED_COMBATLOG_SUBEVENTS = {
     SPELL_MISSED = true,
 }
 
+local function RefreshDuelNameplateState(ctx, reason)
+    if ctx.STATE then
+        if ctx.STATE.reactionByPlate then
+            ctx.WipeTable(ctx.STATE.reactionByPlate)
+        end
+        if ctx.STATE.reactionSourceByPlate then
+            ctx.WipeTable(ctx.STATE.reactionSourceByPlate)
+        end
+    end
+    if ctx.RequestFastNameplateScan then
+        ctx.RequestFastNameplateScan(0.80)
+    end
+    ctx.ScanNameplates()
+    ctx.RefreshAllVisiblePlates()
+    if ctx.Print then
+        ctx.Print("debug: duel refresh (" .. tostring(reason or "unknown") .. ")")
+    end
+end
+
 function IcicleEvents.HandleEvent(ctx, event, ...)
     if event == "PLAYER_LOGIN" then
         _G.Icicledb = type(_G.Icicledb) == "table" and _G.Icicledb or {}
@@ -50,6 +69,9 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
         ctx.addon:RegisterEvent("PLAYER_FOCUS_CHANGED")
         ctx.addon:RegisterEvent("UNIT_TARGET")
         ctx.addon:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+        ctx.addon:RegisterEvent("DUEL_REQUESTED")
+        ctx.addon:RegisterEvent("DUEL_INBOUNDS")
+        ctx.addon:RegisterEvent("DUEL_FINISHED")
         if ctx.UpdateAdvancedSpecEvents then
             ctx.UpdateAdvancedSpecEvents()
         end
@@ -69,6 +91,11 @@ function IcicleEvents.HandleEvent(ctx, event, ...)
         end
         ctx.ScanNameplates()
         ctx.RefreshAllVisiblePlates()
+        return
+    end
+
+    if event == "DUEL_REQUESTED" or event == "DUEL_INBOUNDS" or event == "DUEL_FINISHED" then
+        RefreshDuelNameplateState(ctx, event)
         return
     end
 

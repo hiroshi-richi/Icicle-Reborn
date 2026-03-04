@@ -129,13 +129,13 @@ if type(DataModule.BASE_COOLDOWNS) ~= "table" then
     error("Icicle: Reborn: IcicleData.BASE_COOLDOWNS is required")
 end
 local function Print(msg)
+    if not db or not db.debugMode then
+        return
+    end
     DEFAULT_CHAT_FRAME:AddMessage("|cffFF7D0A[" .. ADDON_NAME .. "]|r: " .. tostring(msg))
 end
 
 local function DebugStatePrint(enabled, reason)
-    if not db or not db.debugMode then
-        return
-    end
     local stateText = enabled and "enabled" or "disabled"
     Print("debug: addon " .. stateText .. " (" .. tostring(reason or "unknown") .. ")")
 end
@@ -287,6 +287,23 @@ local function RegisterExpiryRecord(storeKind, unitKey, record)
     })
 end
 
+local function EnsureSpellMapCount(spellMap)
+    if type(spellMap) ~= "table" then
+        return 0
+    end
+    if spellMap.__count ~= nil then
+        return tonumber(spellMap.__count) or 0
+    end
+    local c = 0
+    for spellID in pairs(spellMap) do
+        if type(spellID) == "number" then
+            c = c + 1
+        end
+    end
+    spellMap.__count = c
+    return c
+end
+
 local function ProcessExpiryQueue(now)
     local changed = false
     now = now or GetTime()
@@ -309,15 +326,11 @@ local function ProcessExpiryQueue(now)
             local rec = bySpell[top.spellID]
             if rec and rec.__expiryToken == top.token and rec.expiresAt <= now then
                 bySpell[top.spellID] = nil
+                local nextCount = EnsureSpellMapCount(bySpell) - 1
+                if nextCount < 0 then nextCount = 0 end
+                bySpell.__count = nextCount
                 bySpell.__dirty = true
-                local hasSpells = false
-                for k in pairs(bySpell) do
-                    if type(k) == "number" then
-                        hasSpells = true
-                        break
-                    end
-                end
-                if not hasSpells then
+                if nextCount <= 0 then
                     store[top.unitKey] = nil
                 end
                 changed = true
@@ -797,21 +810,245 @@ local function ReleaseIcons(meta)
     end
 end
 
+local function IsShownSafe(obj)
+    if not obj then
+        return false
+    end
+    if obj.IsShown and obj:IsShown() then
+        return true
+    end
+    if obj.IsVisible and obj:IsVisible() then
+        return true
+    end
+    return false
+end
+
+local function IsLikelyCastIcon(obj, bar)
+    if not (obj and obj.GetLeft and obj.GetRight and obj.GetTop and obj.GetBottom and obj.GetWidth and obj.GetHeight) then
+        return false, nil
+    end
+    if not IsShownSafe(obj) then
+        return false, nil
+    end
+    local w = obj:GetWidth() or 0
+    local h = obj:GetHeight() or 0
+    if w < 8 or h < 8 or w > 64 or h > 64 then
+        return false, nil
+    end
+    local ratio = w / max(1, h)
+    if ratio < 0.65 or ratio > 1.35 then
+        return false, nil
+    end
+    local barLeft = bar:GetLeft()
+    local barRight = bar:GetRight()
+    local barTop = bar:GetTop()
+    local barBottom = bar:GetBottom()
+    if not (barLeft and barRight and barTop and barBottom) then
+        return false, nil
+    end
+    local left = obj:GetLeft()
+    local right = obj:GetRight()
+    local top = obj:GetTop()
+    local bottom = obj:GetBottom()
+    if not (left and right and top and bottom) then
+        return false, nil
+    end
+    local overlapTop = min(top, barTop)
+    local overlapBottom = max(bottom, barBottom)
+    local overlapH = overlapTop - overlapBottom
+    if overlapH <= 0 then
+        return false, nil
+    end
+    local minOverlap = min(h, (barTop - barBottom))
+    if overlapH < (minOverlap * 0.25) then
+        return false, nil
+    end
+    local gap
+    if right <= barLeft then
+        gap = barLeft - right
+    elseif left >= barRight then
+        gap = left - barRight
+    else
+        gap = 0
+    end
+    if gap > 40 then
+        return false, nil
+    end
+    return true, gap
+end
+
+local function ResolveCastBarIcon(castBar)
+    if not castBar then
+        return nil
+    end
+
+    local direct = castBar.Icon or castBar.icon or castBar.SpellIcon or castBar.spellIcon
+    if direct and direct.GetObjectType and IsShownSafe(direct) then
+        return direct
+    end
+
+    local parent = castBar.GetParent and castBar:GetParent() or nil
+    if parent then
+        local sibling = parent.Icon or parent.icon or parent.SpellIcon or parent.spellIcon or parent.CastbarIcon
+        if sibling and sibling.GetObjectType and IsShownSafe(sibling) then
+            return sibling
+        end
+    end
+
+    local best = nil
+    local bestGap = 9999
+
+    if castBar.GetNumRegions then
+        local regionCount = castBar:GetNumRegions() or 0
+        for i = 1, regionCount do
+            local reg = select(i, castBar:GetRegions())
+            if reg and reg.GetObjectType and reg:GetObjectType() == "Texture" then
+                local ok, gap = IsLikelyCastIcon(reg, castBar)
+                if ok and gap and gap < bestGap then
+                    best = reg
+                    bestGap = gap
+                end
+            end
+        end
+    end
+
+    if parent then
+        if parent.GetNumRegions then
+            local regionCount = parent:GetNumRegions() or 0
+            for i = 1, regionCount do
+                local reg = select(i, parent:GetRegions())
+                if reg and reg.GetObjectType and reg:GetObjectType() == "Texture" then
+                    local ok, gap = IsLikelyCastIcon(reg, castBar)
+                    if ok and gap and gap < bestGap then
+                        best = reg
+                        bestGap = gap
+                    end
+                end
+            end
+        end
+        if parent.GetNumChildren then
+            local childCount = parent:GetNumChildren() or 0
+            for i = 1, childCount do
+                local child = select(i, parent:GetChildren())
+                if child and child ~= castBar then
+                    local ok, gap = IsLikelyCastIcon(child, castBar)
+                    if ok and gap and gap < bestGap then
+                        best = child
+                        bestGap = gap
+                    end
+                end
+            end
+        end
+    end
+
+    if best then
+        return best
+    end
+
+    return nil
+end
+
+local function EnsureCastBarAnchorProxy(meta)
+    if meta._castBarAnchorProxy and meta._castBarAnchorProxy:IsObjectType("Frame") then
+        return meta._castBarAnchorProxy
+    end
+    local proxy = CreateFrame("Frame", nil, UIParent)
+    proxy:SetFrameStrata("BACKGROUND")
+    proxy:SetAlpha(0)
+    proxy:EnableMouse(false)
+    proxy:SetSize(1, 1)
+    meta._castBarAnchorProxy = proxy
+    return proxy
+end
+
+local function ResolveCastBarAnchorRef(meta, castBar)
+    local icon = ResolveCastBarIcon(castBar)
+    local iconShown = icon and ((icon.IsShown and icon:IsShown()) or (icon.IsVisible and icon:IsVisible()))
+    if not iconShown then
+        local parent = castBar.GetParent and castBar:GetParent() or nil
+        if parent and parent ~= meta.plate then
+            local barW = castBar.GetWidth and castBar:GetWidth() or 0
+            local parW = parent.GetWidth and parent:GetWidth() or 0
+            if barW > 0 and parW >= (barW + 8) and parW <= (barW + 120) then
+                return parent, "CASTBAR_PARENT"
+            end
+        end
+        return castBar, "CASTBAR"
+    end
+
+    local side = nil
+    local barLeft = castBar.GetLeft and castBar:GetLeft() or nil
+    local barRight = castBar.GetRight and castBar:GetRight() or nil
+    local iconLeft = icon.GetLeft and icon:GetLeft() or nil
+    local iconRight = icon.GetRight and icon:GetRight() or nil
+
+    if barLeft and barRight and iconLeft and iconRight then
+        if iconRight <= (barLeft + 2) then
+            side = "LEFT"
+        elseif iconLeft >= (barRight - 2) then
+            side = "RIGHT"
+        end
+    end
+
+    if not side then
+        side = "LEFT"
+    end
+
+    local proxy = EnsureCastBarAnchorProxy(meta)
+    if meta._castBarProxySide ~= side or meta._castBarProxyIcon ~= icon or meta._castBarProxyBar ~= castBar then
+        proxy:ClearAllPoints()
+        if side == "RIGHT" then
+            proxy:SetPoint("TOPLEFT", castBar, "TOPLEFT", 0, 0)
+            proxy:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 0, 0)
+        else
+            proxy:SetPoint("TOPLEFT", icon, "TOPLEFT", 0, 0)
+            proxy:SetPoint("BOTTOMRIGHT", castBar, "BOTTOMRIGHT", 0, 0)
+        end
+        meta._castBarProxySide = side
+        meta._castBarProxyIcon = icon
+        meta._castBarProxyBar = castBar
+    end
+    return proxy, "CASTBAR_COMPOSITE_PROXY"
+end
+
 local function ApplyContainerAnchor(meta)
     local container = EnsureContainer(meta)
     local parent = meta.healthBar or meta.plate
+    local anchorRef = parent
+    local anchorPoint = db.anchorPoint
+    local anchorTo = db.anchorTo
+    local anchorX = db.xOffset
+    local anchorY = db.yOffset
+    local castbarAnchorActive = false
+    local anchorDebugKind = "BASE"
+
+    if db.anchorBelowCastbarWhenCasting and meta.castBar and meta.castBar.IsShown and meta.castBar:IsShown() then
+        local resolvedRef, resolvedKind = ResolveCastBarAnchorRef(meta, meta.castBar)
+        anchorRef = resolvedRef or meta.castBar
+        anchorDebugKind = resolvedKind or "CASTBAR"
+        castbarAnchorActive = true
+    end
+
     local frameLevel = (parent:GetFrameLevel() or meta.plate:GetFrameLevel() or 1) + 1
     local needReanchor = false
     if meta._anchorParent ~= parent then
         needReanchor = true
         meta._anchorParent = parent
     end
-    if meta._anchorPoint ~= db.anchorPoint or meta._anchorTo ~= db.anchorTo or meta._anchorX ~= db.xOffset or meta._anchorY ~= db.yOffset then
+    if meta._anchorRef ~= anchorRef then
         needReanchor = true
-        meta._anchorPoint = db.anchorPoint
-        meta._anchorTo = db.anchorTo
-        meta._anchorX = db.xOffset
-        meta._anchorY = db.yOffset
+        meta._anchorRef = anchorRef
+    end
+    if meta._anchorPoint ~= anchorPoint or meta._anchorTo ~= anchorTo or meta._anchorX ~= anchorX or meta._anchorY ~= anchorY then
+        needReanchor = true
+        meta._anchorPoint = anchorPoint
+        meta._anchorTo = anchorTo
+        meta._anchorX = anchorX
+        meta._anchorY = anchorY
+    end
+    if meta._castbarAnchorActive ~= castbarAnchorActive then
+        needReanchor = true
+        meta._castbarAnchorActive = castbarAnchorActive
     end
     if meta._anchorStrata ~= db.frameStrata then
         container:SetFrameStrata(db.frameStrata)
@@ -823,7 +1060,17 @@ local function ApplyContainerAnchor(meta)
     end
     if needReanchor then
         container:ClearAllPoints()
-        container:SetPoint(db.anchorPoint, parent, db.anchorTo, db.xOffset, db.yOffset)
+        container:SetPoint(anchorPoint, anchorRef, anchorTo, anchorX, anchorY)
+    end
+
+    if meta._debugAnchorKind ~= anchorDebugKind then
+        meta._debugAnchorKind = anchorDebugKind
+        local plateName = meta.name or (meta.nameText and meta.nameText.GetText and meta.nameText:GetText()) or "unknown"
+        if anchorDebugKind == "BASE" then
+            Print(format("debug: anchor source=%s plate=%s", "BASE", tostring(plateName)))
+        else
+            Print(format("debug: anchor source=%s plate=%s", tostring(anchorDebugKind), tostring(plateName)))
+        end
     end
 end
 local function LayoutIcons(meta)
@@ -888,25 +1135,22 @@ end
 local function PruneExpiredStore(tbl, now)
     local changed = false
     for k, spellMap in pairs(tbl) do
+        local count = EnsureSpellMapCount(spellMap)
         local unitChanged = false
         for spellID, rec in pairs(spellMap) do
             if type(spellID) == "number" and type(rec) == "table" and rec.expiresAt <= now then
                 spellMap[spellID] = nil
+                count = count - 1
                 changed = true
                 unitChanged = true
             end
         end
         if unitChanged then
+            if count < 0 then count = 0 end
+            spellMap.__count = count
             spellMap.__dirty = true
         end
-        local hasSpells = false
-        for spellID in pairs(spellMap) do
-            if type(spellID) == "number" then
-                hasSpells = true
-                break
-            end
-        end
-        if not hasSpells then
+        if (tonumber(spellMap.__count) or 0) <= 0 then
             tbl[k] = nil
         end
     end

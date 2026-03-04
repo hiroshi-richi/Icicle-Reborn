@@ -326,13 +326,12 @@ function IcicleResolver.ResolveGroupTargets(ctx)
             if UnitExists(unit) then IcicleResolver.ResolveUnit(ctx, unit, 0.8, "raid-target") end
         end
     else
-        local partyCount = GetNumPartyMembers and GetNumPartyMembers() or 4
-        if partyCount <= 0 then
-            partyCount = 4
-        end
-        for i = 1, partyCount do
-            local unit = "party" .. i .. "target"
-            if UnitExists(unit) then IcicleResolver.ResolveUnit(ctx, unit, 0.75, "party-target") end
+        local partyCount = GetNumPartyMembers and GetNumPartyMembers() or 0
+        if partyCount > 0 then
+            for i = 1, partyCount do
+                local unit = "party" .. i .. "target"
+                if UnitExists(unit) then IcicleResolver.ResolveUnit(ctx, unit, 0.75, "party-target") end
+            end
         end
     end
 end
